@@ -8,7 +8,8 @@
 **Architecture:** Local-first browser application served by a Go daemon\
 **Primary input:** ITRANS\
 **Initial output scripts:** Devanagari, Kannada, Tamil\
-**Canonical document format:** Unicode UTF-8
+**Canonical document format:** Unicode UTF-8\
+**Licence:** GPL-3.0
 
 **Revision history**
 
@@ -576,13 +577,14 @@ same test corpus.
                                                schemes, supports ITRANS,
                                                Devanagari, Kannada, Tamil.
                                                **Provisional choice.**
-  Aksharamukha                    AGPL-3.0     Python; licence is
-                                               incompatible with an
-                                               MIT/Apache app if linked.
-                                               May be used offline as a
-                                               test oracle only.
+  Aksharamukha                    AGPL-3.0     Python; not usable in the
+                                               browser. May be used
+                                               offline as a test oracle.
   Lipika IME                      GPL-3.0      macOS input method, not a
-                                               library. Reference only.
+                                               library. Its mapping data
+                                               may be reused under the
+                                               project's GPL-3.0 licence
+                                               (§17.2).
   Samsaadhanii                    ---          Reference only.
 
 \* Licences must be confirmed from each project's current `LICENSE`
@@ -1782,8 +1784,9 @@ Exact versions are pinned in `go.mod`/`go.sum` and
 
 Aksharamukha (AGPL-3.0, verify), Lipika IME (GPL-3.0, verify) and
 Samsaadhanii may be consulted, or run offline to cross-check test
-expectations. No code or data from them is copied into the project
-unless its licence allows it.
+expectations. Code or data from them is copied into the project only if
+its licence is compatible with GPL-3.0 (§17.2), with attribution in
+`THIRD_PARTY_NOTICES.md`.
 
 ------------------------------------------------------------------------
 
@@ -1803,18 +1806,34 @@ Suggested GitHub description:
 
 ### 17.2 Licence
 
-MIT or Apache-2.0 are reasonable candidates. Both are compatible with
-the dependencies in §16.
+Paramaakshara is licensed under the **GNU General Public License,
+version 3 (GPL-3.0)**. The full text is in `LICENSE`.
 
-Before selecting a licence:
+Consequences:
 
--   Review all third-party transliteration libraries.
--   Review font licences.
--   Review any imported mapping tables.
--   Preserve attribution and licence notices.
+-   Anyone who distributes Paramaakshara, modified or not, must make the
+    corresponding source available under GPL-3.0.
+-   Dependencies must have GPL-3.0-compatible licences. MIT, BSD and
+    Apache-2.0 are compatible, so everything in §16 is fine. GPL-2.0-only
+    code is **not** compatible and must not be used.
+-   GPL-3.0 code and data (for example Lipika's mapping tables) may be
+    reused, with attribution.
+-   AGPL-3.0 code (Aksharamukha) may legally be combined with GPL-3.0
+    code, but the AGPL parts keep their extra network-use terms. Avoid
+    linking it; use it only as an offline test oracle.
+-   Bundled fonts keep their own licences (OFL-1.1 for Noto). They are
+    distributed alongside the program, not relicensed.
+-   Each Go and TypeScript source file carries the SPDX header
+    `SPDX-License-Identifier: GPL-3.0-or-later`.
+
+Also:
+
+-   Review the licence of every transliteration library, font and
+    imported mapping table before use.
+-   Preserve attribution and licence notices in
+    `THIRD_PARTY_NOTICES.md`.
 -   Do not copy proprietary Baraha implementation code or undocumented
     assets.
--   Do not link AGPL or GPL code into the application.
 
 ### 17.3 Contribution areas
 
@@ -1891,6 +1910,7 @@ changed.
                                              the source.
   13   HTTP port               Decided       Fixed default `7531`, configurable;
                                              no silent fallback (§9.6, §9.7).
+  14   Licence                 Decided       GPL-3.0 (§17.2).
 
 ------------------------------------------------------------------------
 
