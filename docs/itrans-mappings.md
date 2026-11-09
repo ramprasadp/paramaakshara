@@ -104,7 +104,8 @@ Text typed in Baraha (with `q`, `#`, `$` accents and Baraha letters) is
 rewritten in ITRANS before it is inserted (`frontend/src/conversion/
 baraha.ts`, same legend as above plus `q`→`_`, `#`→`'`, `$`→`'''`,
 `:`→`H`, `&`→`.a`, `S`→`sh`, `c`→`ch`, `C`→`Ch`, `B`→`bh`, `G`→`gh`,
-`E`→`e`, `O`→`o`):
+`K`→`kh`, `P`→`ph`, `J`→`jh`, `E`→`e`, `O`→`o`, `ou`→`au`, and `oum` as a
+whole word → `OM`). The stotra samples in `testdata/baraha/` check it.
 
 -   **Baraha…** in the toolbar opens a dialog with a preview.
 -   Pasting text that looks like Baraha (it contains `#` or `$`, or `q`

@@ -20,6 +20,10 @@ const MAP: [string, string][] = [
   ["c", "ch"],
   ["B", "bh"],
   ["G", "gh"],
+  ["K", "kh"],
+  ["P", "ph"],
+  ["J", "jh"],
+  ["ou", "au"],
   ["E", "e"],
   ["O", "o"],
   ["q", "_"],
@@ -34,6 +38,16 @@ export function barahaToItrans(text: string): string {
   let out = "";
   let i = 0;
   outer: while (i < text.length) {
+    // "oum" as a whole word is OM (ॐ).
+    if (
+      text.startsWith("oum", i) &&
+      !isLetter(text[i - 1]) &&
+      !isLetter(text[i + 3])
+    ) {
+      out += "OM";
+      i += 3;
+      continue;
+    }
     for (const [from, to] of MAP) {
       if (text.startsWith(from, i)) {
         out += to;
@@ -45,6 +59,10 @@ export function barahaToItrans(text: string): string {
     i++;
   }
   return out;
+}
+
+function isLetter(ch: string | undefined): boolean {
+  return ch !== undefined && /[A-Za-z]/.test(ch);
 }
 
 /**

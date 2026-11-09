@@ -18,6 +18,12 @@ describe("Baraha → ITRANS", () => {
     ).toBe("svAhA''' puru'ShaH pAdo'.asya shraddhA bhava chid Ch gh e o");
   });
 
+  it("rewrites Baraha's capital aspirates, ou and oum", () => {
+    expect(barahaToItrans("SiKAye PaT Jampa siddhou oum dhyAnaM soum")).toBe(
+      "shikhAye phaT jhampa siddhau OM dhyAnaM saum",
+    );
+  });
+
   it("converts to the expected Devanagari", () => {
     const r = transliterate(
       barahaToItrans(

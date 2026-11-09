@@ -65,7 +65,7 @@ export async function barahaDialog(
   const choice = await show(
     pasted === undefined ? "Paste Baraha text" : "This looks like Baraha text",
     [
-      "Baraha keys are rewritten in ITRANS: q → _, # → ', $ → ''', : → H, & → .a, S → sh, c → ch, B → bh, G → gh, Ru → R^i, ~g → ~N, ~j → ~n.",
+      "Baraha keys are rewritten in ITRANS: q → _, # → ', $ → ''', : → H, & → .a, S → sh, c → ch, B → bh, G → gh, K → kh, P → ph, J → jh, ou → au, oum → OM, Ru → R^i, ~g → ~N, ~j → ~n.",
       input,
       preview,
     ],
