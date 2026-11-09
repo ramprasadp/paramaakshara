@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // ITRANS → Devanagari (TECH_SPEC §5). ITRANS 5.3 with the project's Vedic
-// accent sequences (§5.3). Deviations from ITRANS 5.3 are listed in
-// docs/itrans-mappings.md. One line is converted at a time; there is no
-// state between calls.
+// accent sequences (§5.3) and a few Baraha spellings (marked "Baraha").
+// Deviations from ITRANS 5.3 are listed in docs/itrans-mappings.md. One
+// line is converted at a time; there is no state between calls.
 
-export const CONVERTER_VERSION = "itrans-5.3+pak/1";
+export const CONVERTER_VERSION = "itrans-5.3+pak/2";
 
 export interface Issue {
   /** Offset and length in the source line (UTF-16 units). */
@@ -39,6 +39,8 @@ const VOWELS: Record<string, [string, string]> = {
   "R^i": ["ऋ", "ृ"],
   RRI: ["ॠ", "ॄ"],
   "R^I": ["ॠ", "ॄ"],
+  Ru: ["ऋ", "ृ"], // Baraha
+  RU: ["ॠ", "ॄ"], // Baraha
   LLi: ["ऌ", "ॢ"],
   "L^i": ["ऌ", "ॢ"],
   LLI: ["ॡ", "ॣ"],
@@ -56,12 +58,14 @@ const CONSONANTS: Record<string, string> = {
   g: "ग",
   gh: "घ",
   "~N": "ङ",
+  "~g": "ङ", // Baraha
   ch: "च",
   Ch: "छ",
   chh: "छ",
   j: "ज",
   jh: "झ",
   "~n": "ञ",
+  "~j": "ञ", // Baraha
   JN: "ञ",
   T: "ट",
   Th: "ठ",
@@ -111,6 +115,7 @@ const SIGNS: Record<string, string> = {
   ".n": "ं",
   H: "ः",
   ".N": "ँ",
+  "~M": "ँ", // Baraha
 };
 
 const OTHER: Record<string, string> = {

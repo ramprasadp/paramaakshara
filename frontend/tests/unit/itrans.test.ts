@@ -108,6 +108,20 @@ describe("Vedic accents (§5.3)", () => {
   });
 });
 
+describe("Baraha spellings", () => {
+  it("accepts Ru, RU, ~g, ~j and ~M as in Baraha", () => {
+    // Rigveda 10.90.1 typed as in the Baraha source.
+    expect(t("sa bhUmi'M vi_shvato' vRu_tvAtya'tiShThaddashA~ggu_lam")).toBe(
+      "स भूमिं॑ वि॒श्वतो॑ वृ॒त्वात्य॑तिष्ठद्दशाङ्गु॒लम्",
+    );
+    expect(t("RuShi RUkAra")).toBe("ऋषि ॠकार");
+    expect(t("tilA~jjuhomi j~jAna jyAyA'~Mshcha")).toBe(
+      "तिलाञ्जुहोमि ज्ञान ज्याया\u0901\u0951श्च",
+    );
+    expect(transliterate("vRu_tvA ~ggu ~jja ~M").issues).toEqual([]);
+  });
+});
+
 describe("unknown input", () => {
   it("passes unknown Latin letters through and reports them", () => {
     const r = transliterate("raBa");

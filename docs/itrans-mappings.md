@@ -2,7 +2,7 @@
 
 The normative input table for Paramaakshara (TECH_SPEC §5). The code is
 `frontend/src/conversion/itrans.ts`; its tables must match this file.
-Converter version: `itrans-5.3+pak/1` (stored in project files).
+Converter version: `itrans-5.3+pak/2` (stored in project files).
 
 Reference convention: **ITRANS 5.3**. Input is read by longest match, one
 line at a time.
@@ -74,6 +74,28 @@ Devanagari already in the line) pass through unchanged.
 -   Runs of `'` of length 2 or 4+, `__`, and accents not following a
     vowel are left as typed and reported.
 
+## Baraha spellings
+
+Accepted as alternatives, so text can be typed as in Baraha. None of
+them means anything in ITRANS 5.3, so they cannot change existing ITRANS
+text. Taken from the legend in `testdata/vedic/baraha/README.md`.
+
+  Baraha   Same as   Output
+  -------- --------- ----------------------
+  `Ru`     `R^i`     ऋ / ृ
+  `RU`     `R^I`     ॠ / ॄ
+  `~g`     `~N`      ङ
+  `~j`     `~n`      ञ (so `j~j` gives ज्ञ)
+  `~M`     `.N`      ँ
+
+Example (Ṛgveda 10.90.1 typed as in Baraha):
+`sa bhUmi'M vi_shvato' vRu_tvAtya'tiShThaddashA~ggu_lam` →
+स भूमिं॑ वि॒श्वतो॑ वृ॒त्वात्य॑तिष्ठद्दशाङ्गु॒लम्
+
+Not accepted: Baraha `G` (घ), because ITRANS `G` is ग़; Baraha `S`, `B`,
+`c`, `E`, `O` (use `sh`, `bh`, `ch`, `e`, `o`); and Baraha's accent keys
+`q`, `#`, `$` (the project uses `_`, `'`, `'''`).
+
 ## Reported problems
 
 The converter never guesses. These are left as typed and reported, which
@@ -96,6 +118,8 @@ the editor shows as ⚠ (TECH_SPEC §4.4):
                                           written (ADR 0003).
   ZWJ and ZWNJ have no input sequence     To be defined when needed (§5.2).
   yet.
+  `Ru`, `RU`, `~g`, `~j`, `~M` are        Baraha spellings (above).
+  accepted.
 
 ## Not yet supported
 
