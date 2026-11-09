@@ -185,6 +185,15 @@ export class EditorDocument {
     this.refresh();
   }
 
+  /**
+   * Call after a converter setting other than the script changes (the e/o
+   * reading): linked lines are regenerated; manual lines are untouched.
+   */
+  converterChanged(): void {
+    this.segments = this.regenerateLinked(this.segments);
+    this.refresh();
+  }
+
   /** Regenerates linked outputs that differ from the current converter. */
   private regenerateLinked(segs: Segment[]): Segment[] {
     return segs.map((s) => {
@@ -339,9 +348,10 @@ export class EditorDocument {
           next ?? this.applyChanges(pane, this.segments, tr.changes);
         changed = true;
       }
-      // Linked lines always follow the current script, including lines
-      // added after a switch that undo or redo has just reversed (§4.6).
-      if (scriptChanged) {
+      // Linked lines always follow the current converter, including lines
+      // that undo or redo restores from before a script or e/o change
+      // (§4.6).
+      if (scriptChanged || changed) {
         this.segments = this.regenerateLinked(this.segments);
         changed = true;
       }

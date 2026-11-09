@@ -30,6 +30,7 @@ const settings: Settings = {
   output_script: "devanagari",
   tamil_convention: "superscript",
   vedic_tradition: "rigveda",
+  e_o_length: "sanskrit",
 };
 
 function sample(ctx: Context) {
@@ -65,6 +66,22 @@ describe("project file", () => {
       ["stale", "AA"],
       ["stale", "BB"],
     ]);
+  });
+
+  it("saves the e/o reading, and reads files without it as Sanskrit", () => {
+    const ctx = context();
+    const json = toProject(
+      fromSource("aa", ctx),
+      { ...settings, e_o_length: "dravidian" },
+      "test/1",
+    );
+    expect(JSON.parse(json).e_o_length).toBe("dravidian");
+    expect(fromProject(json, ctx).settings?.e_o_length).toBe("dravidian");
+    const old = JSON.parse(json) as Record<string, unknown>;
+    delete old.e_o_length;
+    expect(fromProject(JSON.stringify(old), ctx).settings?.e_o_length).toBe(
+      "sanskrit",
+    );
   });
 
   it("preserves Vedic text exactly", () => {

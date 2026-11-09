@@ -116,7 +116,16 @@
     <aside id="palette" class="palette" hidden></aside>
     <main class="panes">
       <section class="pane">
-        <h2>ITRANS input</h2>
+        <h2>
+          ITRANS input
+          <select
+            id="eo-select"
+            title="How e/E and o/O are read: the same in Sanskrit; short and long in Kannada and Tamil"
+          >
+            <option value="sanskrit">e = E (Sanskrit)</option>
+            <option value="dravidian">e short, E long (Kannada/Tamil)</option>
+          </select>
+        </h2>
         <div id="source" class="editor"></div>
       </section>
       <section class="pane">

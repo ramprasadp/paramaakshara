@@ -69,6 +69,15 @@ describe("Devanagari → Tamil (superscript convention)", () => {
   });
 });
 
+describe("short e/o (Kannada and Tamil)", () => {
+  it("keep their length in Kannada and Tamil and back", () => {
+    expect(kn("व\u0946ंकटेश").text).toBe("ವೆಂಕಟೇಶ");
+    expect(kn("क\u094Aल कोल").text).toBe("ಕೊಲ ಕೋಲ");
+    expect(ta("क\u094Aल कोल").text).toBe("கொல கோல");
+    expect(toDevanagari("ವೆಂಕಟೇಶ").text).toBe("व\u0946ंकटेश");
+  });
+});
+
 describe("back to Devanagari", () => {
   it("reads superscripted Tamil and Kannada", () => {
     expect(toDevanagari("ப⁴க³வத்³கீ³தா").text).toBe("भगवद्गीता");

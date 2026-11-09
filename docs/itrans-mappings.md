@@ -2,7 +2,7 @@
 
 The normative input table for Paramaakshara (TECH_SPEC §5). The code is
 `frontend/src/conversion/itrans.ts`; its tables must match this file.
-Converter version: `itrans-5.3+pak/3` (stored in project files).
+Converter version: `itrans-5.3+pak/4` (stored in project files).
 
 Reference convention: **ITRANS 5.3**. Input is read by longest match, one
 line at a time.
@@ -21,9 +21,9 @@ line at a time.
   `RRI`, `R^I`      ॠ             ॄ
   `LLi`, `L^i`      ऌ             ॢ
   `LLI`, `L^I`      ॡ             ॣ
-  `e`               ए             े
+  `e`, `E`          ए             े             (see "e and o" below)
   `ai`              ऐ             ै
-  `o`               ओ             ो
+  `o`, `O`          ओ             ो
   `au`              औ             ौ
 
 ## Consonants
@@ -76,6 +76,29 @@ Devanagari already in the line) pass through unchanged.
 -   Runs of `'` of length 2 or 4+, `__`, and accents not following a
     vowel are left as typed and reported.
 
+## e and o: Sanskrit or Kannada/Tamil reading
+
+Sanskrit has no short e or o, so by default `e` and `E` are the same
+vowel ए, and `o` and `O` the same vowel ओ. Kannada and Tamil distinguish
+short and long e/o, so a document can choose the **Kannada/Tamil
+reading** (the selector in the ITRANS pane, saved in the project file
+as `e_o_length`):
+
+  Input   Sanskrit (default)   Kannada/Tamil reading     Kannada   Tamil
+  ------- -------------------- ------------------------- --------- -------
+  `e`     ए / े                ऎ / ॆ (short, U+090E/0946)  ಎ / ೆ     எ / ெ
+  `E`     ए / े                ए / े (long)                ಏ / ೇ     ஏ / ே
+  `o`     ओ / ो                ऒ / ॊ (short, U+0912/094A)  ಒ / ೊ     ஒ / ொ
+  `O`     ओ / ो                ओ / ो (long)                ಓ / ೋ     ஓ / ோ
+
+This is Baraha's convention (`e` short, `E` long). Example: `veMkaTEsha`
+→ वॆंकटेश → ವೆಂಕಟೇಶ in the Kannada/Tamil reading, वेंकटेश → ವೇಂಕಟೇಶ in the
+Sanskrit reading. Changing the reading regenerates the lines that follow
+the ITRANS; hand-edited lines are not changed. The Clean up text fix for
+short e/o starts unchecked in this reading.
+
+`OM` after a consonant is the vowel `O` and anusvara (`kOM` → कों), not ॐ.
+
 ## Baraha spellings
 
 Accepted as alternatives, so text can be typed as in Baraha. None of
@@ -118,7 +141,7 @@ whole word → `OM`). The stotra samples in `testdata/baraha/` check it.
 The converter never guesses. These are left as typed and reported, which
 the editor shows as ⚠ (TECH_SPEC §4.4):
 
--   ASCII letters that start no ITRANS token (for example `B`, `E`, `S`,
+-   ASCII letters that start no ITRANS token (for example `B`, `S`,
     `c`, `R` on its own).
 -   The accent problems above.
 

@@ -116,6 +116,7 @@ test("save as a project, then reopen with edit markers", async ({
     "output_script",
     "tamil_convention",
     "vedic_tradition",
+    "e_o_length",
     "segments",
   ]);
   expect(file.segments).toEqual([
@@ -301,4 +302,30 @@ test("Quit asks first when there are unsaved changes", async ({ page }) => {
     async () => (await fetch("/api/health")).status,
   );
   expect(health).toBe(200);
+});
+
+test("the e/o reading is saved with the project", async ({
+  page,
+  browserName,
+}) => {
+  await signIn(page);
+  await page.selectOption("#eo-select", "dravidian");
+  await typeSource(page, "veMkaTEsha");
+  const name = `${browserName}-eo.paramaakshara.json`;
+  await saveAs(page, name);
+  await expect(page.locator("#save-state")).toHaveText("Saved");
+  const file = JSON.parse(readFileSync(join(DOCS, name), "utf8")) as {
+    e_o_length: string;
+  };
+  expect(file.e_o_length).toBe("dravidian");
+
+  await page.selectOption("#eo-select", "sanskrit");
+  await page.click("#file-new");
+  await button(page, "Discard").click();
+  await page.click("#file-open");
+  await page.locator("dialog input.filter").fill(name);
+  await button(page, name).click();
+  await expect(page.locator("#eo-select")).toHaveValue("dravidian");
+  await expectTexts(page, { source: "veMkaTEsha", output: "वॆंकटेश" });
+  await expect(page.locator("#counts")).toHaveText("1 line");
 });

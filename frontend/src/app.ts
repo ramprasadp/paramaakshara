@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import "./styles.css";
-import { transliterate } from "./conversion/itrans";
+import { transliterate, type EoLength } from "./conversion/itrans";
 import { fromDevanagari, type Script } from "./conversion/script";
 import { switchScript } from "./model/switch";
 import { EditorDocument, type Counts } from "./editor/document";
@@ -31,15 +31,16 @@ interface LineResult {
  */
 function converter(
   devanagariDigits: boolean,
-): (line: string, script: Script) => LineResult {
-  const caches = new Map<Script, Map<string, LineResult>>();
-  return (line, script) => {
-    let cache = caches.get(script);
-    if (!cache) caches.set(script, (cache = new Map()));
+): (line: string, script: Script, eo: EoLength) => LineResult {
+  const caches = new Map<string, Map<string, LineResult>>();
+  return (line, script, eo) => {
+    const key = `${script}/${eo}`;
+    let cache = caches.get(key);
+    if (!cache) caches.set(key, (cache = new Map()));
     let r = cache.get(line);
     if (!r) {
       if (cache.size > 20_000) cache.clear();
-      const dev = transliterate(line, { devanagariDigits });
+      const dev = transliterate(line, { devanagariDigits, eo });
       const out = fromDevanagari(dev.text, script);
       r = {
         text: out.text,
@@ -149,9 +150,12 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     configured === "kannada" || configured === "tamil"
       ? configured
       : "devanagari";
+  // e/o reading of the ITRANS: a document setting (saved with it).
+  const eoSelect = byId<HTMLSelectElement>("eo-select");
+  let eo: EoLength = "sanskrit";
   let nextId = 0;
   const context: Context = {
-    convert: (s) => convert(s, script).text,
+    convert: (s) => convert(s, script, eo).text,
     newId: () => `s${++nextId}`,
   };
   let files: Files | null = null;
@@ -171,12 +175,17 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
       showScript();
       files?.setOutputScript(s);
     },
-    issues: (s) => convert(s, script).issues,
+    issues: (s) => convert(s, script, eo).issues,
     // Baraha text pasted into the ITRANS pane would convert wrongly
     // (q is a letter in ITRANS), so offer to rewrite it first.
     onSourcePaste: (text) => {
       if (!looksLikeBaraha(text)) return false;
-      void barahaDialog(doc, (line) => convert(line, script), text);
+      void barahaDialog(
+        doc,
+        (line) => convert(line, script, eo),
+        () => eo,
+        text,
+      );
       return true;
     },
     onChange: (c) => {
@@ -186,6 +195,15 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     confirm: (message) => window.confirm(message),
   });
   showScript();
+  const setEo = (value: EoLength, regenerate: boolean) => {
+    eo = value;
+    eoSelect.value = value;
+    files?.setEoLength(value);
+    if (regenerate) doc.converterChanged();
+  };
+  eoSelect.addEventListener("change", () =>
+    setEo(eoSelect.value as EoLength, true),
+  );
   scriptSelect.addEventListener("change", () => {
     const to = scriptSelect.value as Script;
     let issues: { line: number; messages: string[] }[] = [];
@@ -211,10 +229,15 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     const lines = doc.output.state.doc.toString().split("\n");
     void exportPdf(lines, files?.documentName() ?? "Untitled");
   });
-  byId("cleanup").addEventListener("click", () => void cleanupCommand(doc));
+  byId("cleanup").addEventListener("click", () => void cleanupCommand(doc, eo));
   byId("baraha").addEventListener(
     "click",
-    () => void barahaDialog(doc, (line) => convert(line, script)),
+    () =>
+      void barahaDialog(
+        doc,
+        (line) => convert(line, script, eo),
+        () => eo,
+      ),
   );
 
   let tradition = config?.editor.vedic_tradition ?? "rigveda";
@@ -230,8 +253,14 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
   doc.source.focus();
   if (!config) return { doc, files };
 
-  const f = new Files(doc, context, config, showStatus, (s) =>
-    doc.setScript(s),
+  const f = new Files(
+    doc,
+    context,
+    config,
+    showStatus,
+    (s) => doc.setScript(s),
+    // Set before a project is read, so its lines are checked with it.
+    (value) => setEo(value, false),
   );
   files = f;
   const actions: Record<string, () => unknown> = {

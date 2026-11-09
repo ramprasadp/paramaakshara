@@ -24,6 +24,15 @@ describe("Baraha → ITRANS", () => {
     );
   });
 
+  it("keeps e/E and o/O distinct in the Kannada/Tamil reading", () => {
+    expect(barahaToItrans("veMkaTESa gOvinda", "sanskrit")).toBe(
+      "veMkaTesha govinda",
+    );
+    expect(barahaToItrans("veMkaTESa gOvinda", "dravidian")).toBe(
+      "veMkaTEsha gOvinda",
+    );
+  });
+
   it("converts to the expected Devanagari", () => {
     const r = transliterate(
       barahaToItrans(

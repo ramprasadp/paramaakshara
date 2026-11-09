@@ -1430,6 +1430,7 @@ font-specific codes. Plain-text export is always available.
   "output_script": "devanagari",
   "tamil_convention": "superscript",
   "vedic_tradition": "rigveda",
+  "e_o_length": "sanskrit",
   "segments": [
     {
       "source": "agnim iiLe purohitaM",

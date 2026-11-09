@@ -5,6 +5,8 @@
 // testdata/vedic/baraha/README.md, derived from Baraha source/Unicode
 // pairs; the corpus test checks it against both samples.
 
+import type { EoLength } from "./itrans";
+
 const MAP: [string, string][] = [
   ["~M", ".N"],
   ["~g", "~N"],
@@ -33,8 +35,17 @@ const MAP: [string, string][] = [
   ["&", ".a"],
 ];
 
+// In the "dravidian" e/o reading Baraha's e/E and o/O keep their meaning
+// (short/long); in the "sanskrit" reading they are the same vowel.
+const SANSKRIT_ONLY = new Set(["E", "O"]);
+
 /** Rewrites Baraha source text in ITRANS. Other characters are kept. */
-export function barahaToItrans(text: string): string {
+export function barahaToItrans(
+  text: string,
+  eo: EoLength = "sanskrit",
+): string {
+  const map =
+    eo === "dravidian" ? MAP.filter(([from]) => !SANSKRIT_ONLY.has(from)) : MAP;
   let out = "";
   let i = 0;
   outer: while (i < text.length) {
@@ -48,7 +59,7 @@ export function barahaToItrans(text: string): string {
       i += 3;
       continue;
     }
-    for (const [from, to] of MAP) {
+    for (const [from, to] of map) {
       if (text.startsWith(from, i)) {
         out += to;
         i += from.length;

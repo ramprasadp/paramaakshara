@@ -26,7 +26,10 @@ shared ISCII layout (each pair checked by Unicode name):
   Devanagari           Kannada            Notes
   -------------------- ------------------ ------------------------------
   अ … औ, क … ह, ळ       ಅ … ಔ, ಕ … ಹ, ಳ     Devanagari e/o (ए ओ) are the
-                                          long vowels ಏ ಓ
+                                          long vowels ಏ ಓ; the short
+                                          ऎ ॆ ऒ ॊ are ಎ ೆ ಒ ೊ (see the
+                                          e/o reading in
+                                          docs/itrans-mappings.md)
   ं ः ँ ऽ ्             ಂ ಃ ಁ ಽ ್
   ० … ९                ೦ … ೯
   ॐ                    ಓಂ                 No Kannada OM sign; reported,

@@ -120,6 +120,25 @@ describe("Taittirīya anusvara (gm)/(gg)", () => {
   });
 });
 
+describe("e/o reading (Kannada and Tamil short e/o)", () => {
+  it("reads e = E and o = O as the long vowels by default (Sanskrit)", () => {
+    expect(t("ve~NkaTesho vE~NkaTEsho")).toBe("वेङ्कटेशो वेङ्कटेशो");
+    expect(t("e E o O")).toBe("ए ए ओ ओ");
+    expect(transliterate("vE~NkaTEsho").issues).toEqual([]);
+  });
+
+  it("reads e/o as short and E/O as long in the Kannada/Tamil reading", () => {
+    const d = (s: string) => transliterate(s, { eo: "dravidian" }).text;
+    expect(d("veMkaTEsha")).toBe("व\u0946ंकटेश");
+    expect(d("e E o O kola kOla")).toBe("\u090E ए \u0912 ओ क\u094Aल कोल");
+    expect(d("kai kau")).toBe("कै कौ");
+  });
+
+  it("reads OM after a consonant as O + anusvara, not ॐ", () => {
+    expect(t("kOM OM")).toBe("कों ॐ");
+  });
+});
+
 describe("Baraha spellings", () => {
   it("accepts Ru, RU, ~g, ~j and ~M as in Baraha", () => {
     // Rigveda 10.90.1 typed as in the Baraha source.

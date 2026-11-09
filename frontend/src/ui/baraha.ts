@@ -4,6 +4,7 @@
 // how it converts, then inserts the ITRANS at the input cursor.
 
 import { barahaToItrans } from "../conversion/baraha";
+import type { EoLength } from "../conversion/itrans";
 import type { EditorDocument } from "../editor/document";
 import { el, show } from "./dialog";
 
@@ -21,6 +22,7 @@ const PREVIEW_LINES = 6;
 export async function barahaDialog(
   doc: EditorDocument,
   convert: (itrans: string) => LinePreview,
+  eo: () => EoLength,
   pasted?: string,
 ): Promise<void> {
   const input = el("textarea", {
@@ -33,7 +35,7 @@ export async function barahaDialog(
   });
   const preview = el("div", { className: "baraha-preview" });
   const render = () => {
-    const lines = barahaToItrans(input.value).split("\n");
+    const lines = barahaToItrans(input.value, eo()).split("\n");
     const results = lines.map(convert);
     const problems = results.filter((r) => r.issues.length > 0).length;
     preview.replaceChildren(
@@ -77,6 +79,7 @@ export async function barahaDialog(
       { label: "Insert as ITRANS", value: "convert", primary: true },
     ],
   );
-  if (choice === "convert") doc.insertInSource(barahaToItrans(input.value));
+  if (choice === "convert")
+    doc.insertInSource(barahaToItrans(input.value, eo()));
   else if (choice === "raw" && pasted !== undefined) doc.insertInSource(pasted);
 }

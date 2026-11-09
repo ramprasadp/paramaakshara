@@ -79,3 +79,28 @@ test("manual lines are converted; Tamil approximations are reported", async ({
   await expect(dialog).toContainText("no Tamil equivalent");
   await dialog.getByRole("button", { name: "OK" }).click();
 });
+
+test("the Kannada/Tamil e/o reading keeps short and long e/o apart", async ({
+  page,
+}) => {
+  await page.selectOption("#script-select", "kannada");
+  await page.selectOption("#eo-select", "dravidian");
+  await typeSource(page, "veMkaTEsha\ngoviMda");
+  await expect
+    .poll(async () => (await texts(page)).output)
+    .toBe("ವೆಂಕಟೇಶ\nಗೊವಿಂದ");
+  // A hand-edited line keeps its text when the reading changes.
+  await page.evaluate(() => {
+    const v = window.paramaakshara.doc.output;
+    v.focus();
+    v.dispatch({
+      changes: { from: v.state.doc.length, insert: "ನು" },
+      userEvent: "input.type",
+    });
+  });
+  await page.selectOption("#eo-select", "sanskrit");
+  await expect
+    .poll(async () => (await texts(page)).output)
+    .toBe("ವೇಂಕಟೇಶ\nಗೊವಿಂದನು");
+  expect((await texts(page)).source).toBe("veMkaTEsha\ngoviMda");
+});

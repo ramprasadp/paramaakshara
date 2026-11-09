@@ -5,7 +5,7 @@
 // Deviations from ITRANS 5.3 are listed in docs/itrans-mappings.md. One
 // line is converted at a time; there is no state between calls.
 
-export const CONVERTER_VERSION = "itrans-5.3+pak/3";
+export const CONVERTER_VERSION = "itrans-5.3+pak/4";
 
 export interface Issue {
   /** Offset and length in the source line (UTF-16 units). */
@@ -19,9 +19,18 @@ export interface Result {
   issues: Issue[];
 }
 
+/**
+ * How e and o are read. "sanskrit": e and E are the same (long) vowel, as
+ * are o and O. "dravidian": e and o are the short vowels of Kannada and
+ * Tamil (Devanagari ऎ ॆ ऒ ॊ), E and O the long ones (as in Baraha).
+ */
+export type EoLength = "sanskrit" | "dravidian";
+
 export interface Options {
   /** Convert 0–9 to Devanagari digits (default true). */
   devanagariDigits?: boolean;
+  /** Reading of e/E and o/O (default "sanskrit"). */
+  eo?: EoLength;
 }
 
 // Independent vowel and vowel sign ("" for the inherent a).
@@ -46,9 +55,17 @@ const VOWELS: Record<string, [string, string]> = {
   LLI: ["ॡ", "ॣ"],
   "L^I": ["ॡ", "ॣ"],
   e: ["ए", "े"],
+  E: ["ए", "े"],
   ai: ["ऐ", "ै"],
   o: ["ओ", "ो"],
+  O: ["ओ", "ो"],
   au: ["औ", "ौ"],
+};
+
+// Short e and o, for e/o in "dravidian" reading.
+const SHORT_E_O: Record<string, [string, string]> = {
+  e: ["\u090E", "\u0946"], // ऎ ॆ
+  o: ["\u0912", "\u094A"], // ऒ ॊ
 };
 
 // Consonants and conjuncts written as one ITRANS token.
@@ -154,6 +171,7 @@ function match(line: string, i: number): string | null {
 /** Converts one line of ITRANS to Devanagari. Never throws. */
 export function transliterate(line: string, opts: Options = {}): Result {
   const digits = opts.devanagariDigits ?? true;
+  const dravidian = opts.eo === "dravidian";
   const issues: Issue[] = [];
   let out = "";
   // A consonant still waiting for its vowel (or for a virama).
@@ -221,8 +239,13 @@ export function transliterate(line: string, opts: Options = {}): Result {
     }
     i += tok.length;
 
-    if (tok in VOWELS) {
-      const [independent, sign] = VOWELS[tok]!;
+    if (tok === "OM" && pending) {
+      // kOM is k + O + M, not k + ॐ.
+      out += VOWELS.O![1] + SIGNS.M;
+      pending = false;
+      vowel = true;
+    } else if (tok in VOWELS) {
+      const [independent, sign] = (dravidian && SHORT_E_O[tok]) || VOWELS[tok]!;
       out += pending ? sign : independent;
       pending = false;
       vowel = true;
