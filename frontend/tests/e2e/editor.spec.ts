@@ -79,7 +79,7 @@ test("typing ITRANS fills the output line by line", async ({ page }) => {
   });
 });
 
-test("Vedic aगगents and the conversion-error marker", async ({ page }) => {
+test("Vedic accents and the conversion-error marker", async ({ page }) => {
   await typeSource(page, "a_gnimii'Le\nbhUmi'M svAhA'''\nraBa");
   expect((await texts(page)).output).toBe(
     "अ\u0952ग्निमी\u0951ळे\nभूमि\u0902\u0951 स्वाहा\u1CDA\nरBअ",
@@ -171,7 +171,7 @@ test("Enter at the end of an output line adds an output-only line", async ({
   expect(await markers(page, "output")).toEqual(["", "+", ""]);
 });
 
-test("aगगent buttons insert at the output cursor", async ({ page }) => {
+test("accent buttons insert at the output cursor", async ({ page }) => {
   await typeSource(page, "कख");
   await select(page, "output", 1);
   await page.click('button[data-insert="॒"]');
@@ -190,4 +190,10 @@ test("status bar counts edited and output-only lines", async ({ page }) => {
   await expect(page.locator("#counts")).toHaveText(
     "3 lines · 1 edited · 1 output-only",
   );
+});
+
+test("the page title is paramaakshara", async ({ page }) => {
+  await expect(page).toHaveTitle("paramaakshara");
+  await typeSource(page, "aa");
+  await expect(page).toHaveTitle("paramaakshara");
 });

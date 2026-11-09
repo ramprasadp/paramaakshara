@@ -119,7 +119,6 @@ async function quitApp(files: Files): Promise<void> {
 function showStatus(name: string, dirty: boolean): void {
   byId("docname").textContent = dirty ? `${name} •` : name;
   byId("save-state").textContent = dirty ? "Unsaved changes" : "Saved";
-  document.title = `${dirty ? "• " : ""}${name} — Paramaakshara`;
 }
 
 function showBanner(e: unknown): void {
