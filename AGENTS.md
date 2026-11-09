@@ -22,6 +22,7 @@ a TypeScript frontend to the browser on `127.0.0.1`.
 ``` sh
 make build   # frontend build + bin/paramaakshara (frontend is embedded)
 make test    # go test ./... and Vitest
+make e2e     # Playwright browser tests (Chromium, Firefox, WebKit)
 make lint    # gofmt, go vet, tsc --noEmit, Prettier check
 make fmt     # format Go and frontend code
 make dev     # daemon on :7531 plus the Vite dev server
@@ -65,6 +66,10 @@ pass.
 -   **Vedic accent input** (§5.3): `_` anudātta U+0952, `'` svarita
     U+0951, `'''` double svarita U+1CDA. Never emit U+0953 for the double
     svarita, and never treat two U+0951 as a double svarita.
+-   **Accent order:** anusvara, visarga or chandrabindu comes first, then
+    the accent (भूमिं॑). The reverse renders as a dotted circle (ADR 0002).
+-   **Fonts:** Noto Devanagari is the default because macOS fonts lack
+    U+1CDA. Check rendering in all three engines, not just one.
 -   **Do not edit files in `testdata/`** except to add new samples. Any
     correction to a sample must be listed in that directory's README.
 

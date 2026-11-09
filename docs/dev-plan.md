@@ -54,6 +54,10 @@ Mapping tables:
 
 **Done when:** an ADR confirms CodeMirror 6 or records the switch.
 
+**Status:** done --- ADR 0001 (CodeMirror 6) and ADR 0002 (accent order,
+Noto Devanagari). Manual input-method and paste checks are listed in
+ADR 0001.
+
 ### M2 --- Daemon core
 
 -   Config loading and precedence, per-OS paths, logging (§9.6, §9.8).
@@ -104,9 +108,8 @@ open file triggers the conflict prompt.
 
 -   Symbol catalogue JSON, palette (§6.4).
 -   Font selection, Playwright screenshot tests (§13.6).
--   Decide accent vs anusvara order (§5.3).
 -   Clean up text command (§6.8): visarga, Baraha double svarita
-    (U+0953 → U+1CDA), short e/o.
+    (U+0953 → U+1CDA), short e/o, accent order (ADR 0002).
 
 **Done when:** accents render correctly in the documented browser/font
 combinations.

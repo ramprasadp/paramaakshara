@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>M1 editor spike</title>
+    <style>
+      :root {
+        --font: "Kohinoor Devanagari", "Devanagari Sangam MN", sans-serif;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: #fff;
+        color: #111;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 16px;
+        border-bottom: 1px solid #ccc;
+      }
+      main {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        padding: 8px 16px;
+      }
+      section h2 {
+        font-size: 13px;
+        margin: 0 0 4px;
+      }
+      .pane,
+      textarea {
+        height: 55vh;
+        border: 1px solid #999;
+        font-family: var(--font);
+        font-size: 22px;
+        line-height: 1.9;
+      }
+      .pane .cm-editor {
+        height: 100%;
+      }
+      .pane .cm-scroller {
+        font-family: var(--font);
+        line-height: 1.9;
+      }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        resize: none;
+      }
+      #inspector {
+        margin: 0 16px 16px;
+        padding: 8px;
+        background: #f4f4f4;
+        font:
+          13px/1.5 ui-monospace,
+          monospace;
+        white-space: pre-wrap;
+        min-height: 6em;
+      }
+      .gutter-mark {
+        color: #b45309;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>M1 spike</strong>
+      <label>
+        Sample
+        <select id="sample">
+          <option value="purusha">Purusha Sukta</option>
+          <option value="viraja">Viraja Homa</option>
+        </select>
+      </label>
+      <button id="load">Load into all panes</button>
+      <label>
+        Font
+        <select id="font">
+          <option value='"Kohinoor Devanagari", sans-serif'>
+            Kohinoor Devanagari
+          </option>
+          <option value='"Devanagari Sangam MN", sans-serif'>
+            Devanagari Sangam MN
+          </option>
+          <option value='"ITF Devanagari", sans-serif'>ITF Devanagari</option>
+          <option
+            value='"Noto Serif Devanagari", "Noto Sans Devanagari", sans-serif'
+          >
+            Noto Devanagari (if installed)
+          </option>
+          <option value="serif">Browser default serif</option>
+        </select>
+      </label>
+      <span>Insert into right pane:</span>
+      <button data-insert="&#x0952;">anudātta U+0952</button>
+      <button data-insert="&#x0951;">svarita U+0951</button>
+      <button data-insert="&#x1CDA;">double svarita U+1CDA</button>
+      <button id="compare">Compare panes with sample</button>
+    </header>
+    <main>
+      <section>
+        <h2>CodeMirror 6 (input pane stand-in)</h2>
+        <div id="left" class="pane"></div>
+      </section>
+      <section>
+        <h2>
+          CodeMirror 6 (output pane stand-in, gutter marks every 3rd line)
+        </h2>
+        <div id="right" class="pane"></div>
+      </section>
+      <section>
+        <h2>Plain textarea (comparison)</h2>
+        <textarea id="plain" spellcheck="false"></textarea>
+      </section>
+    </main>
+    <div id="inspector">
+      Click in any pane to see the code points around the cursor.
+    </div>
+    <script type="module" src="./editor.ts"></script>
+  </body>
+</html>

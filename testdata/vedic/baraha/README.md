@@ -77,9 +77,11 @@ point in the Unicode text on every line of both samples.
     vowels).** Baraha's `E`/`O` produced the Dravidian short e/o
     (ॆ ॊ ऎ ऒ) instead of े ो ए ओ. Sanskrit has no short e/o. Kept as
     produced to test the Clean up text command.
--   **Accent before anusvara/chandrabindu.** Baraha always writes the
-    accent first (भूमि॑ं, शुद्ध्य॒न्ता॒ं). This is evidence for the output
-    order left open in TECH_SPEC §5.3.
+-   **Accent before anusvara/visarga/chandrabindu.** Baraha always writes
+    the accent first (भूमि॑ं, शुद्ध्य॒न्ता॒ं): 9 times in purusha-sukta, 43
+    in viraja-homa. This order renders with a dotted circle in every font
+    tested, so Paramaakshara writes the sign first (ADR 0002). Kept as
+    produced to test the Clean up text command.
 -   **`(gm)` / `(gg)` (viraja-homa).** The Taittirīya anusvara is written
     as plain text in parentheses. Where an accent follows (`भू॑यास॒(ग्ग्)॒`),
     the combining mark sits on `)` and usually renders on a dotted

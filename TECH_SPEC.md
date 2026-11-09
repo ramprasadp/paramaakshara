@@ -498,11 +498,10 @@ a_gnimii'Le pu_rohi'taM ya_j~nasya' de_vamR^i_tvija'm
     written after the vowel sign in the output, so it attaches to the
     whole syllable.
 -   **Anusvara, visarga and chandrabindu.** Both `aM'` and `a'M` are
-    accepted. The output uses one documented order of accent and
-    anusvara/visarga/chandrabindu, chosen in Phase 3 by rendering tests
-    with the bundled fonts. The candidate is accent first, then
-    anusvara/chandrabindu (भूमि॑ं), which is the order Baraha produces
-    (`testdata/vedic/baraha/`).
+    accepted. The output always writes the sign **first** and the
+    accent after it: भूमिं॑ (U+0902 U+0951), not भूमि॑ं. The reverse order,
+    which Baraha produces, shows a dotted circle in every font tested
+    (ADR 0002). The same applies to visarga (ः) and chandrabindu (ँ).
 -   **Longest match.** `'''` is read before `'`. A run of apostrophes
     must have length 1 or 3. Any other length (`''`, `''''`) is not
     converted to marks: it is passed through unchanged and the segment
@@ -791,6 +790,9 @@ not converted, searched or shaped as a visarga.
   Sanskrit e/o         Devanagari short e/o:          Long e/o:
                        ॆ U+0946, ॊ U+094A,             े U+0947, ो U+094B,
                        ऎ U+090E, ऒ U+0912              ए U+090F, ओ U+0913
+  Accent order         Accent followed by anusvara,   The sign, then the accent
+                       visarga or chandrabindu        (§5.3)
+                       (भूमि॑ं)                         (भूमिं॑)
 
 -   Tamil has no visarga sign; Tamil text is left to the Tamil
     convention (§7.3).
@@ -898,10 +900,11 @@ extensions, history that maps through non-history changes). A plain
 textarea cannot show gutter markers and would need the segment model to
 be simplified.
 
-A Phase 1 spike must confirm CodeMirror 6 with Indic combining marks,
-clipboard, undo/redo, cursor movement and IME composition in Chrome,
-Firefox and Safari before the choice is final. A hand-written
-`contenteditable` editor is excluded.
+The M1 spike confirmed CodeMirror 6 (ADR 0001): it behaves the same in
+Chromium, Firefox and WebKit with Vedic text, never places the cursor
+between a letter and its marks, and Backspace removes one mark at a
+time. The plain textarea behaved differently in each engine. A
+hand-written `contenteditable` editor is excluded.
 
 ### 8.2 Frontend component layout
 
@@ -1772,7 +1775,9 @@ Exact versions are pinned in `go.mod`/`go.sum` and
 
   Font                                       Licence           Plan
   ------------------------------------------ ----------------- -------------------------
-  Noto Serif / Sans Devanagari               OFL-1.1           Bundle
+  Noto Serif / Sans Devanagari               OFL-1.1           Bundle; required. The
+                                                               macOS Devanagari fonts
+                                                               lack U+1CDA (ADR 0002)
   Noto Serif / Sans Kannada                  OFL-1.1           Bundle
   Noto Serif / Sans Tamil                    OFL-1.1           Bundle
   Fonts with stronger Vedic coverage         verify for each   Evaluate in Phase 3;
@@ -1879,8 +1884,7 @@ changed.
                                              table-driven converter (§5.6).
   2    Where conversion runs   Decided       Frontend (TypeScript). The daemon
                                              does no conversion.
-  3    Editor component        Provisional   CodeMirror 6, confirmed by the
-                                             Phase 1 spike (§8.1).
+  3    Editor component        Decided       CodeMirror 6 (§8.1, ADR 0001).
   4    Canonical script        Decided       None. Stored text is shown text;
                                              script switching rewrites the
                                              output explicitly (§2.4, §4.6).
@@ -1893,9 +1897,10 @@ changed.
                                              mappings are data-driven. Baraha
                                              compatibility is open.
   8    Project file format     Decided       JSON `.paramaakshara.json` (§10.3).
-  9    Font distribution       Provisional   Bundle Noto (OFL); others
-                                             user-installed unless licences
-                                             allow bundling (§16.5).
+  9    Font distribution       Decided       Bundle Noto Devanagari (OFL) as the
+                               for           default; it is the only tested font
+                               Devanagari    that renders U+1CDA. Kannada/Tamil
+                                             and others per §16.5 (ADR 0002).
   10   Legacy Baraha import    Open          After v1; needs real sample files.
   11   Application shell       Decided       Browser + Go daemon for v1.
                                for v1        Revisit a webview shell (for example

@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BIN     := bin/paramaakshara
 
-.PHONY: all build frontend test lint fmt dev clean
+.PHONY: all build frontend test e2e lint fmt dev clean
 
 all: lint test build
 
@@ -19,6 +19,10 @@ build: frontend
 test: frontend/node_modules
 	go test ./...
 	npm --prefix frontend test
+
+# Browser tests (Playwright). First run: npx --prefix frontend playwright install
+e2e: frontend/node_modules
+	npm --prefix frontend run e2e
 
 lint: frontend/node_modules
 	@test -z "$$(gofmt -l .)" || { gofmt -l .; echo "gofmt: files above need formatting"; exit 1; }
