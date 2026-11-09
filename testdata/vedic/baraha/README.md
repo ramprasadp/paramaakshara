@@ -35,8 +35,8 @@ point in the Unicode text on every line of both samples.
   `sh`, `S`     श                                 `sh`
   `B`           भ                                 `bh`
   `G`           घ                                 `gh`
-  `e`, `o`      े ो (U+0947, U+094B)               `e`, `o`
-  `E`, `O`      ॆ ॊ (U+0946, U+094A; see notes)    `e`, `o`
+  `e`, `o`      े ो (U+0947, U+094B; see notes)    `e`, `o`
+  `E`, `O`      ॆ ॊ (U+0946, U+094A; see notes)    `E`, `O`
   `(gm)`        `(ग्म्)` as plain text             `(gm)` (ꣳ U+A8F3)
   `(gg)`        `(ग्ग्)` as plain text             `(gg)` (ꣴ U+A8F4)
 

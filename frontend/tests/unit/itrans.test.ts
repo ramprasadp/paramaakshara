@@ -13,10 +13,10 @@ describe("vowels and consonants (§5.2)", () => {
   it.each([
     ["a aa A i ii I u uu U", "अ आ आ इ ई ई उ ऊ ऊ"],
     ["RRi R^i RRI R^I LLi L^i", "ऋ ऋ ॠ ॠ ऌ ऌ"],
-    ["e ai o au", "ए ऐ ओ औ"],
+    ["e E ai o O au", "\u090E ए ऐ \u0912 ओ औ"],
     [
-      "ka kA ki kI ku kU kRRi kR^I ke kai ko kau",
-      "क का कि की कु कू कृ कॄ के कै को कौ",
+      "ka kA ki kI ku kU kRRi kR^I ke kE kai ko kO kau",
+      "क का कि की कु कू कृ कॄ क\u0946 के कै क\u094A को कौ",
     ],
     ["ka kha ga gha ~Na", "क ख ग घ ङ"],
     ["cha Cha chha ja jha ~na JNa", "च छ छ ज झ ञ ञ"],
@@ -46,7 +46,7 @@ describe("vowels and consonants (§5.2)", () => {
     expect(t("puruShaH")).toBe("पुरुषः");
     expect(t("ahaM")).toBe("अहं");
     expect(t("tA.N")).toBe("ताँ");
-    expect(t("so.ahaM")).toBe("सोऽहं");
+    expect(t("sO.ahaM")).toBe("सोऽहं");
     expect(t("OM namaH")).toBe("ॐ नमः");
     expect(t("iti | iti ||")).toBe("इति । इति ॥");
   });
@@ -64,13 +64,13 @@ describe("vowels and consonants (§5.2)", () => {
 
   it("passes through spaces, punctuation and existing Unicode", () => {
     expect(t("rAma, sItA; (ka) - ?")).toBe("राम, सीता; (क) - ?");
-    expect(t("deva देव")).toBe("देव देव");
+    expect(t("dEva देव")).toBe("देव देव");
   });
 });
 
 describe("Vedic accents (§5.3)", () => {
   it("converts Ṛgveda 1.1.1", () => {
-    expect(t("a_gnimii'Le pu_rohi'taM ya_j~nasya' de_vamR^i_tvija'm")).toBe(
+    expect(t("a_gnimii'LE pu_rOhi'taM ya_j~nasya' dE_vamR^i_tvija'm")).toBe(
       "अ॒ग्निमी॑ळे पु॒रोहि॑तं य॒ज्ञस्य॑ दे॒वमृ॒त्विज॑म्",
     );
   });
@@ -120,18 +120,12 @@ describe("Taittirīya anusvara (gm)/(gg)", () => {
   });
 });
 
-describe("e/o reading (Kannada and Tamil short e/o)", () => {
-  it("reads e = E and o = O as the long vowels by default (Sanskrit)", () => {
-    expect(t("ve~NkaTesho vE~NkaTEsho")).toBe("वेङ्कटेशो वेङ्कटेशो");
-    expect(t("e E o O")).toBe("ए ए ओ ओ");
-    expect(transliterate("vE~NkaTEsho").issues).toEqual([]);
-  });
-
-  it("reads e/o as short and E/O as long in the Kannada/Tamil reading", () => {
-    const d = (s: string) => transliterate(s, { eo: "dravidian" }).text;
-    expect(d("veMkaTEsha")).toBe("व\u0946ंकटेश");
-    expect(d("e E o O kola kOla")).toBe("\u090E ए \u0912 ओ क\u094Aल कोल");
-    expect(d("kai kau")).toBe("कै कौ");
+describe("short and long e/o", () => {
+  it("reads e/o as short and E/O as long", () => {
+    expect(t("veMkaTEsha")).toBe("व\u0946ंकटेश");
+    expect(t("e E o O kola kOla")).toBe("\u090E ए \u0912 ओ क\u094Aल कोल");
+    expect(t("kai kau")).toBe("कै कौ");
+    expect(transliterate("vE~NkaTEshO").issues).toEqual([]);
   });
 
   it("reads OM after a consonant as O + anusvara, not ॐ", () => {
@@ -142,11 +136,11 @@ describe("e/o reading (Kannada and Tamil short e/o)", () => {
 describe("Baraha spellings", () => {
   it("accepts Ru, RU, ~g, ~j and ~M as in Baraha", () => {
     // Rigveda 10.90.1 typed as in the Baraha source.
-    expect(t("sa bhUmi'M vi_shvato' vRu_tvAtya'tiShThaddashA~ggu_lam")).toBe(
+    expect(t("sa bhUmi'M vi_shvatO' vRu_tvAtya'tiShThaddashA~ggu_lam")).toBe(
       "स भूमिं॑ वि॒श्वतो॑ वृ॒त्वात्य॑तिष्ठद्दशाङ्गु॒लम्",
     );
     expect(t("RuShi RUkAra")).toBe("ऋषि ॠकार");
-    expect(t("tilA~jjuhomi j~jAna jyAyA'~Mshcha")).toBe(
+    expect(t("tilA~jjuhOmi j~jAna jyAyA'~Mshcha")).toBe(
       "तिलाञ्जुहोमि ज्ञान ज्याया\u0901\u0951श्च",
     );
     expect(transliterate("vRu_tvA ~ggu ~jja ~M").issues).toEqual([]);

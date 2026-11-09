@@ -481,7 +481,8 @@ Where alternatives exist, all must be accepted on input.
   `RRi` / `R^i`           ऋ / ृ        vocalic ṛ
   `RRI` / `R^I`           ॠ / ॄ        vocalic ṝ
   `LLi` / `L^i`           ऌ / ॢ        vocalic ḷ
-  `e`, `ai`, `o`, `au`    ए ऐ ओ औ
+  `e`, `o`                ऎ / ॆ, ऒ / ॊ  short e, o (ಎ ೆ ಒ ೊ, எ ெ ஒ ொ)
+  `E`, `ai`, `O`, `au`    ए ऐ ओ औ      long e, o (ಏ ೇ ಓ ೋ, ஏ ே ஓ ோ)
   `k kh g gh ~N`          क ख ग घ ङ    `~N` is ṅa (velar nasal)
   `ch Ch j jh ~n`         च छ ज झ ञ    `ch` is unaspirated; `chh` = `Ch`;
                                        `JN` = `~n`
@@ -532,7 +533,7 @@ for the svarita; the UI must show the traditional name.
 **Example** (Ṛgveda 1.1.1):
 
 ``` text
-a_gnimii'Le pu_rohi'taM ya_j~nasya' de_vamR^i_tvija'm
+a_gnimii'LE pu_rOhi'taM ya_j~nasya' dE_vamR^i_tvija'm
 अ॒ग्निमी॑ळे पु॒रोहि॑तं य॒ज्ञस्य॑ दे॒वमृ॒त्विज॑म्
 ```
 
@@ -1430,10 +1431,9 @@ font-specific codes. Plain-text export is always available.
   "output_script": "devanagari",
   "tamil_convention": "superscript",
   "vedic_tradition": "rigveda",
-  "e_o_length": "sanskrit",
   "segments": [
     {
-      "source": "agnim iiLe purohitaM",
+      "source": "agnim iiLE purOhitaM",
       "output": "अग्निम् ईळे पुरोहितम्",
       "linked": true
     },

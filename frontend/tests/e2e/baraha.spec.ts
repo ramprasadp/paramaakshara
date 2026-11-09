@@ -5,9 +5,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const BARAHA =
-  "sa bhUmi#M viqshvato# vRuqtvAtya#tiShThaddashA~gguqlam || 10.090.01";
+  "sa bhUmi#M viqshvatO# vRuqtvAtya#tiShThaddashA~gguqlam || 10.090.01";
 const ITRANS =
-  "sa bhUmi'M vi_shvato' vR^i_tvAtya'tiShThaddashA~Ngu_lam || 10.090.01";
+  "sa bhUmi'M vi_shvatO' vR^i_tvAtya'tiShThaddashA~Ngu_lam || 10.090.01";
 const OUTPUT = "स भूमिं॑ वि॒श्वतो॑ वृ॒त्वात्य॑तिष्ठद्दशाङ्गु॒लम् ॥ १०.०९०.०१";
 
 async function texts(page: Page) {

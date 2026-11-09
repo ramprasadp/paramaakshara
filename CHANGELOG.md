@@ -4,10 +4,9 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
--   Kannada/Tamil short e/o: a per-document e/o reading in the ITRANS
-    pane. In the Kannada/Tamil reading `e`/`o` are short (ಎ ಒ) and `E`/`O`
-    long (ಏ ಓ), as in Baraha; the default Sanskrit reading treats them
-    the same. Saved in project files; Baraha paste and import follow it.
+-   Short and long e/o: `e` and `o` are short (ऎ ॆ ऒ ॊ / ಎ ೆ ಒ ೊ /
+    எ ெ ஒ ொ) and `E` and `O` are long (ए े ओ ो / ಏ ೇ ಓ ೋ / ஏ ே ஓ ோ),
+    as in Baraha.
 -   `kOM` now gives कों instead of क्ॐ.
 
 -   Export PDF: prints the output on its own (title, A4 or Letter, text

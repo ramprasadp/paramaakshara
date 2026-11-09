@@ -40,7 +40,9 @@ describe("aditya-hrudaya", () => {
         return;
       }
       expect(result.issues).toEqual([]);
-      expect(spaces(result.text)).toBe(spaces(cleanup(unicode[n - 1]!).text));
+      expect(spaces(cleanup(result.text, ["sanskrit-e-o"]).text)).toBe(
+        spaces(cleanup(unicode[n - 1]!).text),
+      );
     },
   );
 });

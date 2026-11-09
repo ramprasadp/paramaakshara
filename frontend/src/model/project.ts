@@ -29,8 +29,6 @@ export interface Settings {
   output_script: string;
   tamil_convention: string;
   vedic_tradition: string;
-  /** Reading of e/E and o/O in the ITRANS (converter option eo). */
-  e_o_length: "sanskrit" | "dravidian";
 }
 
 export interface ProjectFile extends Settings {
@@ -158,11 +156,6 @@ export function fromProject(json: string, ctx: Context): Loaded {
           output_script: f.output_script,
           tamil_convention: String(f.tamil_convention ?? ""),
           vedic_tradition: String(f.vedic_tradition ?? ""),
-          // Files from 0.1.0 have no setting: they were read the Sanskrit way.
-          e_o_length:
-            f.e_o_length === "dravidian"
-              ? ("dravidian" as const)
-              : ("sanskrit" as const),
         }
       : null;
   return { segments, settings, changedByConverter };
@@ -229,17 +222,6 @@ export function projectScript(
   try {
     const s = (JSON.parse(json) as { output_script?: unknown }).output_script;
     return s === "devanagari" || s === "kannada" || s === "tamil" ? s : null;
-  } catch {
-    return null;
-  }
-}
-
-/** The e/o reading recorded in a project file ("sanskrit" if absent). */
-export function projectEoLength(json: string): "sanskrit" | "dravidian" | null {
-  try {
-    const f = JSON.parse(json) as { format?: unknown; e_o_length?: unknown };
-    if (f.format !== "paramaakshara") return null;
-    return f.e_o_length === "dravidian" ? "dravidian" : "sanskrit";
   } catch {
     return null;
   }

@@ -21,9 +21,11 @@ line at a time.
   `RRI`, `R^I`      ॠ             ॄ
   `LLi`, `L^i`      ऌ             ॢ
   `LLI`, `L^I`      ॡ             ॣ
-  `e`, `E`          ए             े             (see "e and o" below)
+  `e`               ऎ (U+090E)    ॆ (U+0946)    short e (ಎ/ೆ, எ/ெ)
+  `E`               ए             े             long e (ಏ/ೇ, ஏ/ே)
   `ai`              ऐ             ै
-  `o`, `O`          ओ             ो
+  `o`               ऒ (U+0912)    ॊ (U+094A)    short o (ಒ/ೊ, ஒ/ொ)
+  `O`               ओ             ो             long o (ಓ/ೋ, ஓ/ோ)
   `au`              औ             ौ
 
 ## Consonants
@@ -76,26 +78,22 @@ Devanagari already in the line) pass through unchanged.
 -   Runs of `'` of length 2 or 4+, `__`, and accents not following a
     vowel are left as typed and reported.
 
-## e and o: Sanskrit or Kannada/Tamil reading
+## Short and long e/o
 
-Sanskrit has no short e or o, so by default `e` and `E` are the same
-vowel ए, and `o` and `O` the same vowel ओ. Kannada and Tamil distinguish
-short and long e/o, so a document can choose the **Kannada/Tamil
-reading** (the selector in the ITRANS pane, saved in the project file
-as `e_o_length`):
+`e` and `o` are the short vowels (`ऎ`/`ॆ` U+090E/0946 and `ऒ`/`ॊ`
+U+0912/094A in Devanagari; `ಎ`/`ೆ` and `ಒ`/`ೊ` in Kannada; `எ`/`ெ` and
+`ஒ`/`ொ` in Tamil), and `E` and `O` are the long vowels (`ए`/`े` and
+`ओ`/`ो`; `ಏ`/`ೇ` and `ಓ`/`ೋ`; `ஏ`/`ே` and `ஓ`/`ೋ`), as in Baraha:
 
-  Input   Sanskrit (default)   Kannada/Tamil reading     Kannada   Tamil
-  ------- -------------------- ------------------------- --------- -------
-  `e`     ए / े                ऎ / ॆ (short, U+090E/0946)  ಎ / ೆ     எ / ெ
-  `E`     ए / े                ए / े (long)                ಏ / ೇ     ஏ / ே
-  `o`     ओ / ो                ऒ / ॊ (short, U+0912/094A)  ಒ / ೊ     ஒ / ொ
-  `O`     ओ / ो                ओ / ो (long)                ಓ / ೋ     ஓ / ோ
+  Input   Devanagari                Kannada   Tamil
+  ------- ------------------------- --------- -------
+  `e`     ऎ / ॆ (short, U+090E/46)  ಎ / ೆ     எ / ெ
+  `E`     ए / े (long, U+090F/47)   ಏ / ೇ     ஏ / ே
+  `o`     ऒ / ॊ (short, U+0912/4A)  ಒ / ೊ     ஒ / ொ
+  `O`     ओ / ो (long, U+0913/4B)   ಓ / ೋ     ஓ / ೋ
 
-This is Baraha's convention (`e` short, `E` long). Example: `veMkaTEsha`
-→ वॆंकटेश → ವೆಂಕಟೇಶ in the Kannada/Tamil reading, वेंकटेश → ವೇಂಕಟೇಶ in the
-Sanskrit reading. Changing the reading regenerates the lines that follow
-the ITRANS; hand-edited lines are not changed. The Clean up text fix for
-short e/o starts unchecked in this reading.
+Example: `veMkaTEsha` → वॆंकटेश → ವೆಂಕಟೇಶ, `kola kOla` → कॊल कोल → ಕೊಲ ಕೋಲ →
+கொல கோல.
 
 `OM` after a consonant is the vowel `O` and anusvara (`kOM` → कों), not ॐ.
 
@@ -114,12 +112,12 @@ text. Taken from the legend in `testdata/vedic/baraha/README.md`.
   `~M`     `.N`      ँ
 
 Example (Ṛgveda 10.90.1 typed as in Baraha):
-`sa bhUmi'M vi_shvato' vRu_tvAtya'tiShThaddashA~ggu_lam` →
+`sa bhUmi'M vi_shvatO' vRu_tvAtya'tiShThaddashA~ggu_lam` →
 स भूमिं॑ वि॒श्वतो॑ वृ॒त्वात्य॑तिष्ठद्दशाङ्गु॒लम्
 
 Not accepted: Baraha `G` (घ), because ITRANS `G` is ग़; Baraha `S`, `B`,
-`c`, `E`, `O` (use `sh`, `bh`, `ch`, `e`, `o`); and Baraha's accent keys
-`q`, `#`, `$` (the project uses `_`, `'`, `'''`).
+`c` (use `sh`, `bh`, `ch`); and Baraha's accent keys `q`, `#`, `$` (the
+project uses `_`, `'`, `'''`).
 
 ## Pasting Baraha text
 
@@ -127,8 +125,8 @@ Text typed in Baraha (with `q`, `#`, `$` accents and Baraha letters) is
 rewritten in ITRANS before it is inserted (`frontend/src/conversion/
 baraha.ts`, same legend as above plus `q`→`_`, `#`→`'`, `$`→`'''`,
 `:`→`H`, `&`→`.a`, `S`→`sh`, `c`→`ch`, `C`→`Ch`, `B`→`bh`, `G`→`gh`,
-`K`→`kh`, `P`→`ph`, `J`→`jh`, `E`→`e`, `O`→`o`, `ou`→`au`, and `oum` as a
-whole word → `OM`). The stotra samples in `testdata/baraha/` check it.
+`K`→`kh`, `P`→`ph`, `J`→`jh`, `ou`→`au`, and `oum` as a whole word →
+`OM`). The stotra samples in `testdata/baraha/` check it.
 
 -   **Baraha…** in the toolbar opens a dialog with a preview.
 -   Pasting text that looks like Baraha (it contains `#` or `$`, or `q`
@@ -162,6 +160,8 @@ the editor shows as ⚠ (TECH_SPEC §4.4):
   accepted.
   `(gm)`, `(gg)` give ꣳ, ꣴ.               Taittirīya notation as typed in
                                           Baraha.
+  `e`, `o` are short (ऎ ॆ, ऒ ॊ);         Baraha / Kannada / Tamil
+  `E`, `O` are long (ए े, ओ ो).           convention (above).
 
 ## Not yet supported
 

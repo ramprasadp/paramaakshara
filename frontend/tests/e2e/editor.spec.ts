@@ -72,15 +72,15 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("typing ITRANS fills the output line by line", async ({ page }) => {
-  await typeSource(page, "agnim\niiLe");
+  await typeSource(page, "agnim\niiLE");
   expect(await texts(page)).toEqual({
-    source: "agnim\niiLe",
+    source: "agnim\niiLE",
     output: "अग्निम्\nईळे",
   });
 });
 
 test("Vedic accents and the conversion-error marker", async ({ page }) => {
-  await typeSource(page, "a_gnimii'Le\nbhUmi'M svAhA'''\nraBa");
+  await typeSource(page, "a_gnimii'LE\nbhUmi'M svAhA'''\nraBa");
   expect((await texts(page)).output).toBe(
     "अ\u0952ग्निमी\u0951ळे\nभूमि\u0902\u0951 स्वाहा\u1CDA\nरBअ",
   );

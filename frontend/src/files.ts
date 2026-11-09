@@ -4,7 +4,7 @@
 // (TECH_SPEC §10).
 
 import { barahaToItrans } from "./conversion/baraha";
-import { CONVERTER_VERSION, type EoLength } from "./conversion/itrans";
+import { CONVERTER_VERSION } from "./conversion/itrans";
 import type { EditorDocument } from "./editor/document";
 import {
   FormatError,
@@ -17,7 +17,7 @@ import {
   type Loaded,
   type Settings,
 } from "./model/project";
-import { fromProject, projectEoLength, projectScript } from "./model/project";
+import { fromProject, projectScript } from "./model/project";
 import type { Script } from "./conversion/script";
 import { outputText, type Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
@@ -60,8 +60,6 @@ export class Files {
     onStatus: (name: string, dirty: boolean) => void,
     /** Sets the output script before a project in that script is read. */
     private readonly useScript: (script: Script) => void = () => {},
-    /** Sets the e/o reading before a project using it is read. */
-    private readonly useEo: (eo: EoLength) => void = () => {},
   ) {
     this.onStatus = onStatus;
     const e = config.editor;
@@ -71,7 +69,6 @@ export class Files {
       output_script: e.output_script,
       tamil_convention: e.tamil_convention,
       vedic_tradition: e.vedic_tradition,
-      e_o_length: "sanskrit",
     };
     this.saved = this.project();
     this.recoveryKey = recoveryKey();
@@ -99,19 +96,9 @@ export class Files {
     this.report();
   }
 
-  /** The e/o reading is a document setting, saved with it. */
-  setEoLength(eo: EoLength): void {
-    if (this.settings.e_o_length === eo) return;
-    this.settings = { ...this.settings, e_o_length: eo };
-    this.report();
-  }
-
-  /** Applies a project's converter settings before its lines are checked. */
   private useProjectScript(json: string): void {
     const s = projectScript(json);
     if (s) this.useScript(s);
-    const eo = projectEoLength(json);
-    if (eo) this.useEo(eo);
   }
 
   /** The document's Vedic tradition (§6.4); stored in the project file. */

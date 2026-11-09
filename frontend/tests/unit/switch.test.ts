@@ -32,7 +32,7 @@ describe("switchScript (§4.6)", () => {
   it("regenerates linked lines, converts edited and output-only lines, keeps the source", () => {
     let script: Script = "devanagari";
     const ctx = context(() => script);
-    let segs = fromSource("agnimiiLe\nbhUmi'M", ctx);
+    let segs = fromSource("agnimiiLE\nbhUmi'M", ctx);
     segs = append(segs, " ॥", ctx); // line 2 detached
     segs = append(segs, "\nॐ ताँ", ctx); // output-only
     expect(segs.map((s) => s.output)).toEqual([
@@ -58,7 +58,7 @@ describe("switchScript (§4.6)", () => {
   it("switching back restores the original text when nothing was approximate", () => {
     let script: Script = "devanagari";
     const ctx = context(() => script);
-    let segs = fromSource("a_gnimii'Le", ctx);
+    let segs = fromSource("a_gnimii'LE", ctx);
     segs = applyOutputChange(
       segs,
       { from: 0, to: 0, insert: "पुरु॑षः\n" },

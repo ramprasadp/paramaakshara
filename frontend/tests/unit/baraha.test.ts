@@ -14,8 +14,8 @@ describe("Baraha → ITRANS", () => {
       "sa bhUmi'M vi_shvato' vR^i_tvAtya'tiShThaddashA~Ngu_lam || 10.090.01",
     );
     expect(
-      barahaToItrans("svAhA$ puru#Sha: pAdo#&sya SraddhA Bava cid C G E O"),
-    ).toBe("svAhA''' puru'ShaH pAdo'.asya shraddhA bhava chid Ch gh e o");
+      barahaToItrans("svAhA$ puru#Sha: pAdo#&sya SraddhA Bava cid C G e E o O"),
+    ).toBe("svAhA''' puru'ShaH pAdo'.asya shraddhA bhava chid Ch gh e E o O");
   });
 
   it("rewrites Baraha's capital aspirates, ou and oum", () => {
@@ -24,19 +24,14 @@ describe("Baraha → ITRANS", () => {
     );
   });
 
-  it("keeps e/E and o/O distinct in the Kannada/Tamil reading", () => {
-    expect(barahaToItrans("veMkaTESa gOvinda", "sanskrit")).toBe(
-      "veMkaTesha govinda",
-    );
-    expect(barahaToItrans("veMkaTESa gOvinda", "dravidian")).toBe(
-      "veMkaTEsha gOvinda",
-    );
+  it("keeps e/E and o/O distinct", () => {
+    expect(barahaToItrans("veMkaTESa gOvinda")).toBe("veMkaTEsha gOvinda");
   });
 
   it("converts to the expected Devanagari", () => {
     const r = transliterate(
       barahaToItrans(
-        "sa bhUmi#M viqshvato# vRuqtvAtya#tiShThaddashA~gguqlam || 10.090.01",
+        "sa bhUmi#M viqshvatO# vRuqtvAtya#tiShThaddashA~gguqlam || 10.090.01",
       ),
     );
     expect(r.text).toBe(

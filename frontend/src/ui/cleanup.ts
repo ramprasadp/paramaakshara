@@ -5,7 +5,6 @@
 // applies the chosen fixes as one undoable step.
 
 import { ALL_FIXES, cleanup, type Fix } from "../conversion/cleanup";
-import type { EoLength } from "../conversion/itrans";
 import type { EditorDocument } from "../editor/document";
 import { alertBox, el, show } from "./dialog";
 
@@ -20,14 +19,7 @@ const LABELS: Record<Fix, string> = {
 
 const PREVIEW_LINES = 5;
 
-/**
- * With the Kannada/Tamil e/o reading ("dravidian"), short e/o are
- * intended, so that fix starts unchecked.
- */
-export async function cleanupCommand(
-  doc: EditorDocument,
-  eo: EoLength = "sanskrit",
-): Promise<void> {
+export async function cleanupCommand(doc: EditorDocument): Promise<void> {
   const lines = doc.outputLines();
   const scope =
     lines.length === doc.output.state.doc.lines
@@ -43,20 +35,9 @@ export async function cleanupCommand(
   const boxes = new Map<Fix, HTMLInputElement>();
   const list = el("div", { className: "cleanup-fixes" });
   for (const f of available) {
-    const keepShort = f === "sanskrit-e-o" && eo === "dravidian";
-    const box = el("input", { type: "checkbox", checked: !keepShort });
+    const box = el("input", { type: "checkbox", checked: true });
     boxes.set(f, box);
-    list.append(
-      el(
-        "label",
-        {},
-        box,
-        `${LABELS[f]} — ${totals[f]}` +
-          (keepShort
-            ? " (off: this document uses short e/o for Kannada/Tamil)"
-            : ""),
-      ),
-    );
+    list.append(el("label", {}, box, `${LABELS[f]} — ${totals[f]}`));
   }
   const preview = el("div", { className: "cleanup-preview" });
   const chosen = () => available.filter((f) => boxes.get(f)!.checked);

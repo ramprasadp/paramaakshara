@@ -44,7 +44,11 @@ describe.each(["purusha-sukta", "viraja-homa"])("Baraha sample %s", (name) => {
       const result = transliterate(itrans);
       const expected = cleanup(unicode[n - 1]!).text;
       expect(result.issues, itrans).toEqual([]);
-      expect(spaces(result.text)).toBe(spaces(expected));
+      // purusha-sukta was typed with Baraha's Devanagari e/o (lowercase =
+      // long), viraja-homa with E/O; both compare after Sanskrit e/o cleanup.
+      expect(spaces(cleanup(result.text, ["sanskrit-e-o"]).text)).toBe(
+        spaces(expected),
+      );
     },
   );
 });

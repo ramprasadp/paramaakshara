@@ -28,14 +28,14 @@ test.beforeEach(async ({ page }) => {
 test("switching to Kannada regenerates the output; new typing follows; undo switches back", async ({
   page,
 }) => {
-  await typeSource(page, "a_gnimii'Le");
+  await typeSource(page, "a_gnimii'LE");
   await page.selectOption("#script-select", "kannada");
   await expect
     .poll(() => texts(page))
-    .toEqual({ source: "a_gnimii'Le", output: "ಅ॒ಗ್ನಿಮೀ॑ಳೇ" });
+    .toEqual({ source: "a_gnimii'LE", output: "ಅ॒ಗ್ನಿಮೀ॑ಳೇ" });
   await expect(page.locator("#converter")).toHaveText("ITRANS 5.3 → Kannada");
 
-  await typeSource(page, "\npu_rohi'taM");
+  await typeSource(page, "\npu_rOhi'taM");
   await expect
     .poll(async () => (await texts(page)).output)
     .toBe("ಅ॒ಗ್ನಿಮೀ॑ಳೇ\nಪು॒ರೋಹಿ॑ತಂ");
@@ -80,27 +80,19 @@ test("manual lines are converted; Tamil approximations are reported", async ({
   await dialog.getByRole("button", { name: "OK" }).click();
 });
 
-test("the Kannada/Tamil e/o reading keeps short and long e/o apart", async ({
+test("short e/o and long E/O stay distinct across scripts", async ({
   page,
 }) => {
+  await typeSource(page, "veMkaTEsha\nkola kOla");
+  await expect
+    .poll(async () => (await texts(page)).output)
+    .toBe("वॆंकटेश\nकॊल कोल");
   await page.selectOption("#script-select", "kannada");
-  await page.selectOption("#eo-select", "dravidian");
-  await typeSource(page, "veMkaTEsha\ngoviMda");
   await expect
     .poll(async () => (await texts(page)).output)
-    .toBe("ವೆಂಕಟೇಶ\nಗೊವಿಂದ");
-  // A hand-edited line keeps its text when the reading changes.
-  await page.evaluate(() => {
-    const v = window.paramaakshara.doc.output;
-    v.focus();
-    v.dispatch({
-      changes: { from: v.state.doc.length, insert: "ನು" },
-      userEvent: "input.type",
-    });
-  });
-  await page.selectOption("#eo-select", "sanskrit");
+    .toBe("ವೆಂಕಟೇಶ\nಕೊಲ ಕೋಲ");
+  await page.selectOption("#script-select", "tamil");
   await expect
     .poll(async () => (await texts(page)).output)
-    .toBe("ವೇಂಕಟೇಶ\nಗೊವಿಂದನು");
-  expect((await texts(page)).source).toBe("veMkaTEsha\ngoviMda");
+    .toBe("வெம்கடேஶ\nகொல கோல");
 });
