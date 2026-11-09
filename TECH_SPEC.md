@@ -1,20 +1,31 @@
-# Vedic Editor --- Technical Specification
+# Paramaakshara --- Technical Specification
 
-**Repository name:** `vedic-editor`\
+**Repository name:** `paramaakshara`\
 **Document:** `TECH_SPEC.md`\
-**Version:** 1.0\
-**Status:** Draft for implementation\
+**Version:** 1.1\
+**Status:** Draft for implementation --- core decisions recorded in §18\
 **Primary platform:** macOS\
 **Architecture:** Local-first browser application served by a Go daemon\
 **Primary input:** ITRANS\
 **Initial output scripts:** Devanagari, Kannada, Tamil\
 **Canonical document format:** Unicode UTF-8
 
+**Revision history**
+
+  Version   Changes
+  --------- ------------------------------------------------------------
+  1.0       Initial draft.
+  1.1       Segment-based editing model (§4); no hidden canonical
+            script; ITRANS table corrections; tradition-aware Vedic
+            accents; configuration, startup and session security
+            (§9.5--9.8); project file format decided; dependencies
+            (§16); decision log (§18).
+
 ------------------------------------------------------------------------
 
 ## 1. Project summary
 
-Vedic Editor is an open-source, local-first text editor for composing,
+Paramaakshara is an open-source, local-first text editor for composing,
 editing and preserving Sanskrit and Vedic texts.
 
 The primary workflow is a dual-pane editor:
@@ -24,12 +35,17 @@ The primary workflow is a dual-pane editor:
 2.  The right pane renders the corresponding Sanskrit text in real time.
 3.  The right pane is a fully editable Unicode document, not a read-only
     preview.
-4.  The user can paste Unicode Sanskrit text from websites or other
+4.  Manual corrections in the right pane affect only the lines they
+    touch; the user can keep typing ITRANS and the remaining lines keep
+    updating.
+5.  The user can paste Unicode Sanskrit text from websites or other
     applications directly into the output pane.
-5.  The user can change the output script between Devanagari, Kannada
+6.  The user can change the output script between Devanagari, Kannada
     and Tamil.
-6.  Vedic accents and other Vedic signs can be inserted from a symbol
-    palette and, eventually, through configurable keyboard mappings.
+7.  Vedic accents are typed in the ITRANS source: `_` for anudātta,
+    `'` for svarita and `'''` for double svarita (§5.3). They can also
+    be inserted from a symbol palette; further accents will be available
+    through configurable keyboard mappings.
 
 The application is inspired by the practical workflow of Baraha, but is
 designed around Unicode, current browser technology and a cross-platform
@@ -43,7 +59,7 @@ architecture.
 -   Direct Unicode paste without transliteration or data loss.
 -   Script switching between Devanagari, Kannada and Tamil.
 -   Vedic accent and symbol support, including udātta, anudātta and
-    svarita.
+    svarita, labelled according to the Vedic tradition in use.
 -   Reliable undo/redo, save, open, autosave and recovery.
 -   Local operation without a cloud dependency.
 -   An architecture that permits additional input schemes and Indian
@@ -60,6 +76,7 @@ The initial release does not aim to provide:
 -   Cloud document storage or collaborative editing.
 -   Complete binary or legacy-font compatibility with every Baraha file.
 -   A full-featured word processor equivalent to Microsoft Word.
+-   Access to the daemon from other machines on the network.
 
 These may be considered after the core editing and Unicode requirements
 are stable.
@@ -72,8 +89,8 @@ The following principles guide implementation decisions.
 
 ### 2.1 Unicode is authoritative
 
-The canonical document is Unicode text. ITRANS is an input
-representation, not the document's storage format.
+The document is Unicode text. ITRANS is an input representation, not the
+document's storage format.
 
 ### 2.2 The output pane is an editor
 
@@ -81,17 +98,19 @@ The output pane must support ordinary text editing, selection, clipboard
 operations, direct typing, symbol insertion, undo and redo. It must
 never be treated as a disposable preview.
 
-### 2.3 Source and document are independent
+### 2.3 Manual work is never discarded implicitly
 
-The ITRANS source and the Unicode document are separate state objects.
-Manual changes to the output must not silently modify or be overwritten
-by the source pane.
+The ITRANS source and the Unicode output are separate state. Manual
+changes to the output must not silently modify, or be overwritten by,
+the source pane. A source edit never deletes manually edited output
+(§4.3).
 
-### 2.4 Script switching must be explicit
+### 2.4 What is stored is what is shown
 
-Changing the selected script changes the representation shown in the
-output pane. The application must preserve characters and report
-conversions that cannot be represented faithfully.
+There is no hidden canonical copy of the output in another script. The
+text in the output pane is exactly the text that is saved. Changing the
+output script is an explicit, undoable operation that rewrites the
+output and reports anything that could not be converted faithfully.
 
 ### 2.5 Deterministic conversion
 
@@ -102,8 +121,8 @@ deterministic rules or a vetted library.
 
 ### 2.6 Local-first and privacy-conscious
 
-The application should work offline after installation. By default,
-document content must not leave the user's machine.
+The application should work offline after installation. Document content
+must not leave the user's machine.
 
 ------------------------------------------------------------------------
 
@@ -115,23 +134,23 @@ The primary interface contains two side-by-side panes.
 
 ``` text
 +------------------------------------------------------------------+
-| Vedic Editor                                      File  Edit Help |
+| Paramaakshara                                     File  Edit Help |
 +------------------------------------------------------------------+
 | Input scheme: ITRANS                    Output script: Devanagari |
 +--------------------------------+---------------------------------+
 | ITRANS INPUT                   | UNICODE OUTPUT                  |
 |                                |                                 |
-| agnim iiLe purohitaM           | अग्निम् ईळे पुरोहितम्             |
-| yaj~nasya devam                 | यज्ञस्य देवम्                     |
-|                                |                                 |
+|   agnim iiLe purohitaM         |   अग्निम् ईळे पुरोहितम्             |
+| ✎ yaj~nasya devam              | ✎ यज्ञस्य देवम्                     |
 |                                |                                 |
 +--------------------------------+---------------------------------+
-| Vedic Symbols | Regenerate | Save | Find | Replace | Saved       |
+| Vedic Symbols | Regenerate | Save | Find | 1 line edited | Saved  |
 +------------------------------------------------------------------+
 ```
 
-The example is illustrative. Exact transliteration output must be
-validated against the selected ITRANS convention and test corpus.
+`✎` is a gutter marker showing a line whose output was edited manually
+(§4.4). The example is illustrative. Exact transliteration output must
+be validated against the selected ITRANS convention and test corpus.
 
 ### 3.2 Pane behaviour
 
@@ -141,17 +160,18 @@ validated against the selected ITRANS convention and test corpus.
 -   Maintains the original source text.
 -   Provides real-time transliteration.
 -   Supports ordinary text selection, copy, paste and undo/redo.
--   Does not contain the authoritative document content.
+-   Shows segment state markers in the gutter (§4.4).
 
 **Output pane**
 
--   Displays the canonical Unicode document in the selected script.
+-   Displays the Unicode document.
 -   Is fully editable.
 -   Accepts direct keyboard input and pasted Unicode.
 -   Supports Vedic symbol insertion.
 -   Supports selection, copy, paste, undo/redo, find and replace.
 -   Preserves combining marks and unsupported characters.
--   Is the authoritative document content.
+-   Is the content that is saved and exported.
+-   Shows segment state markers in the gutter (§4.4).
 
 ### 3.3 Layout
 
@@ -170,11 +190,12 @@ Initial toolbar actions:
 -   Input scheme selector.
 -   Output script selector.
 -   Vedic symbol palette.
--   Regenerate output.
+-   Regenerate line / Regenerate all.
 -   Undo and redo.
 -   Find and replace.
--   Open.
--   Save.
+-   Open (document browser for configured folders) and Import (any file
+    from the computer).
+-   Save and Save As.
 -   Export.
 -   Document status.
 
@@ -183,18 +204,29 @@ Initial toolbar actions:
 At minimum, preserve platform-native shortcuts:
 
   Action       macOS         Other platforms
-  ------------ ------------- -----------------
+  ------------ ------------- -----------------------
   Copy         Cmd-C         Ctrl-C
   Paste        Cmd-V         Ctrl-V
   Cut          Cmd-X         Ctrl-X
   Select all   Cmd-A         Ctrl-A
   Undo         Cmd-Z         Ctrl-Z
-  Redo         Cmd-Shift-Z   Ctrl-Shift-Z
+  Redo         Cmd-Shift-Z   Ctrl-Shift-Z, Ctrl-Y
   Find         Cmd-F         Ctrl-F
   Save         Cmd-S         Ctrl-S
+  Open         Cmd-O         Ctrl-O
 
-Shortcuts must act on the focused pane and must not be intercepted
-unnecessarily by the application.
+Shortcuts act on the focused pane. Cmd-S, Cmd-O and Cmd-F are handled by
+the application and must call `preventDefault` so the browser's own
+save/open/find does not run. No other shortcuts should be intercepted.
+
+Browsers reserve Cmd-N, Cmd-T, Cmd-W and Cmd-Q, and the page cannot
+override them. The application must therefore:
+
+-   Not depend on Cmd-N for "New document" (use the toolbar or File
+    menu).
+-   Show a `beforeunload` confirmation when there are unsaved changes.
+-   Rely on recovery snapshots (§10.4) for the cases where the browser
+    closes anyway.
 
 ------------------------------------------------------------------------
 
@@ -202,127 +234,176 @@ unnecessarily by the application.
 
 This section defines the most important state-management requirements.
 
-### 4.1 Three logical representations
+### 4.1 Segments
 
-The application maintains three distinct representations.
+A document is an ordered list of **segments**. A segment pairs one line
+of output with the ITRANS source that produced it.
 
-#### A. Source text
-
-The original text typed or pasted into the ITRANS pane.
-
-Example:
-
-``` text
-agnim iiLe purohitaM
+``` ts
+type Segment = {
+  id: string;            // stable, generated; never shown to the user
+  source: string | null; // one or more ITRANS lines; null = output-only
+  output: string;        // exactly one line of Unicode text
+  linked: boolean;       // output is generated from source
+  stale: boolean;        // detached, and source changed since detaching
+};
 ```
 
-The source is retained as entered. It must not be rewritten merely
-because the output pane is edited or the output script is changed.
+Segment kinds:
 
-#### B. Canonical document
+-   **Linked:** `output == transliterate(source, outputScript)`. The
+    output is regenerated whenever the source changes.
+-   **Detached:** has a source, but the output was edited manually. The
+    output is no longer regenerated automatically.
+-   **Output-only:** `source == null`. Created by typing or pasting new
+    lines into the output pane, or by opening a plain-text file.
 
-The authoritative editable Unicode document.
+Rules that hold at all times:
 
-Example:
+-   Every output line belongs to exactly one segment. Output line breaks
+    are segment boundaries.
+-   Every source line belongs to exactly one segment. A segment normally
+    covers one source line; it covers several only after output lines
+    were merged (§4.3).
+-   The input pane shows the sources of all segments that have one, in
+    document order. Output-only segments do not appear in the input
+    pane.
 
-``` text
-अग्निम् ईळे पुरोहितम्
-```
+The granularity is the line because Vedic texts are naturally line
+oriented (pāda, ṛk, mantra). A correction to one line must not stop the
+rest of the document from following the source.
 
-The canonical document is the content saved and exported as Unicode
-text.
+### 4.2 Source edits
 
-#### C. Display representation
+  Source edit                          Effect
+  ------------------------------------ ---------------------------------
+  Edit inside a linked segment         Output regenerated.
+  Edit inside a detached segment       Output unchanged; `stale = true`.
+  New line typed                       New linked segment, inserted
+                                       after the preceding source
+                                       segment and any output-only
+                                       segments that follow it.
+  Line split (Enter mid-line)          Linked: two linked segments.
+                                       Detached: first part keeps the
+                                       manual output and becomes stale;
+                                       second part is a new linked
+                                       segment.
+  Lines joined (line break deleted)    Both linked: one linked segment.
+                                       Otherwise: one detached, stale
+                                       segment whose output is the two
+                                       outputs joined by a space.
+  Source line deleted                  Linked: segment removed.
+                                       Detached: segment becomes
+                                       output-only (manual output is
+                                       kept).
+  Paste of multiple lines              Treated as typing those lines.
 
-The rendering of the canonical document using the selected output script
-and suitable fonts.
+### 4.3 Output edits
 
-The display representation may be generated through script conversion
-where required. It must not be confused with the original source or the
-canonical document.
+Any user edit in the output pane (typing, paste, delete, cut, symbol
+insertion, find/replace) follows these rules:
 
-### 4.2 Source-to-document flow
+  Output edit                          Effect
+  ------------------------------------ ---------------------------------
+  Edit inside a linked segment         Segment becomes detached.
+  Edit inside a detached segment       Output updated; source
+                                       unchanged.
+  Enter at the end of a line           New, empty output-only segment
+                                       after it. The current segment
+                                       is unchanged.
+  Enter at the start of a line         New output-only segment before
+                                       it.
+  Enter mid-line                       First part keeps the source and
+                                       becomes detached; second part
+                                       becomes output-only.
+  Line break deleted (merge)           One detached segment. Its source
+                                       is both sources joined by a line
+                                       break, so no source is lost.
+  Whole output line deleted            Segment removed. Its source line
+                                       is removed from the input pane
+                                       too, as one undoable operation.
+  Multi-line paste                     First line merges into the
+                                       segment at the cursor (detaching
+                                       it); remaining lines become
+                                       output-only segments.
 
-When the user types in the input pane:
+The ITRANS source is never modified by an output edit, except when a
+whole segment is deleted.
 
-1.  The input editor updates its source text.
-2.  The transliteration parser processes the changed input.
-3.  The application obtains a Unicode result.
-4.  If the output is still source-controlled, the canonical document is
-    updated.
-5.  The output pane renders the document in the selected script.
+**Re-linking:** whenever a detached segment's output exactly equals
+`transliterate(source, outputScript)`, it becomes linked again and
+`stale` is cleared. This makes undoing a manual edit behave naturally.
 
-### 4.3 Direct output editing
+### 4.4 Segment state indicators
 
-When the user types or pastes in the output pane:
+  State              Gutter marker   Meaning
+  ------------------ --------------- --------------------------------------
+  Linked             none            Output follows the source.
+  Detached           `✎`             Output edited manually.
+  Detached + stale   `✎!`            Source changed after the manual edit;
+                                     regeneration is available.
+  Output-only        `+`             No source (output pane only).
+  Conversion error   `⚠`             The source contains sequences that
+                                     could not be converted.
 
-1.  The output editor updates the canonical document.
-2.  The original ITRANS source remains unchanged.
-3.  The document is marked as manually edited or detached from live
-    source synchronisation.
-4.  Subsequent input-pane changes must not silently overwrite the
-    output.
-5.  The user can explicitly regenerate the output from the ITRANS
-    source.
-
-### 4.4 Synchronisation state
-
-The application should maintain an explicit synchronisation state, for
-example:
-
--   `source_synced`: output currently reflects transliteration of the
-    source.
--   `output_modified`: output has been edited independently.
--   `source_changed`: source changed while output is independently
-    edited.
--   `conversion_error`: current source cannot be fully converted.
-
-When the source changes while the output is independently edited, the
-application should preserve both values and show that regeneration is
-available.
+Markers appear in both panes where the segment is visible. The status
+bar shows counts of detached, stale and error segments. Hovering a stale
+marker shows the current transliteration of the source next to the
+manual output.
 
 ### 4.5 Regenerate output
 
-The `Regenerate Output` command explicitly replaces the canonical
-document with the transliteration result from the source pane.
+-   **Regenerate line** replaces the output of the segment at the cursor
+    with the transliteration of its source and re-links it. A segment
+    that covers several source lines splits back into one linked segment
+    per source line.
+-   **Regenerate all** does the same for every detached segment.
+    Output-only segments are not affected.
+-   If a regeneration would replace manual output, the application must
+    ask for confirmation and say how many lines will be replaced.
+-   Each regeneration is a single undoable operation in the output
+    history.
 
-If the output has independent edits, the application must ask for
-confirmation before replacement.
-
-A future enhancement may provide a side-by-side diff or merge. This is
-not required for version 1.
+A future enhancement may show a side-by-side diff of the manual output
+and the regenerated output. This is not required for version 1.
 
 ### 4.6 Script switching
 
-Script switching must not modify the ITRANS source.
+The output script is a property of the document. Changing it:
 
-The implementation must define a canonical representation strategy.
-Preferred approach:
+1.  Regenerates every linked segment directly from its ITRANS source in
+    the new script. This is lossless.
+2.  Converts the output of every detached and output-only segment from
+    its current script to the new script using the script converter
+    (§7). Text in other scripts, Latin text, digits and punctuation that
+    has no mapping is left unchanged.
+3.  Reports, per segment, any character that could not be converted
+    faithfully (§7.3).
+4.  Does not modify the ITRANS source.
+5.  Is a single undoable operation.
 
--   Keep a canonical Sanskrit Unicode representation.
--   Convert it to the selected output script for display.
--   If the user edits a non-Devanagari display, convert the edited text
-    back to the canonical representation using a well-defined reverse
-    conversion.
--   If reverse conversion is ambiguous or lossy, preserve the user's
-    text and report the limitation rather than silently dropping
-    characters.
+Converted detached segments stay detached unless the re-linking rule
+(§4.3) applies.
 
-An alternative implementation may store the selected-script text as the
-current document and convert it when switching. If this approach is
-chosen, round-trip and loss-reporting requirements still apply.
+There is no hidden Devanagari copy of the document. Mixed-script
+documents (for example a Devanagari verse with a Kannada commentary
+line) are allowed and saved exactly as shown.
 
 ### 4.7 Undo/redo
 
-Undo and redo must be reliable across both panes.
-
--   Each pane must have a coherent editing history.
--   Direct output edits must be undoable.
--   Pasted text and symbol insertion must be undoable.
--   Automatic transliteration updates must not create confusing undo
-    steps or erase manual output history.
--   Regeneration should be a single undoable document operation where
-    supported.
+-   Each pane has its own history. Cmd-Z acts on the focused pane.
+-   The **input history** records source edits. Undoing a source edit
+    updates linked outputs, but those updates are not recorded in the
+    output history.
+-   The **output history** records manual edits, paste, symbol
+    insertion, regeneration and script switching. Automatic updates of
+    linked segments are not recorded in it; the editor maps the output
+    history through them (CodeMirror does this natively).
+-   Deleting a whole output line also removes its source line (§4.3).
+    This is one entry in the output history; undoing it restores both.
+-   Undoing a manual output edit restores the previous output; the
+    re-linking rule then makes the segment linked again if the output
+    matches the source.
 
 ------------------------------------------------------------------------
 
@@ -332,106 +413,193 @@ Undo and redo must be reliable across both panes.
 
 ITRANS is the mandatory initial input scheme.
 
-The implementation must document which ITRANS version or convention it
-follows. There are variants and implementation differences; mappings
-must be verified against a reference rather than inferred from a small
-example list.
+The reference convention is **ITRANS 5.3**. Any deviation (for example
+an added sequence for ZWJ/ZWNJ or a Vedic sign) must be listed in
+`docs/itrans-mappings.md` with its reason. Mappings must be verified
+against the reference rather than inferred from a small example list.
 
 ### 5.2 Illustrative mappings
 
-The following examples are indicative, not a complete normative mapping
-table:
+The following examples are indicative, not the normative mapping table.
+Where alternatives exist, all must be accepted on input.
 
-  ITRANS       Indic output concept
-  ------------ --------------------------------------------------
-  `a`          short a
-  `aa` / `A`   long ā
-  `i`          short i
-  `ii` / `I`   long ī
-  `u`          short u
-  `uu` / `U`   long ū
-  `R^i`        vocalic ṛ
-  `e`          e
-  `ai`         ai
-  `o`          o
-  `au`         au
-  `kh`         aspirated kha
-  `gh`         aspirated gha
-  `ch`         aspirated/affricate mapping as defined by ITRANS
-  `Sh`         ṣa
-  `sh`         śa
-  `M`          anusvara
-  `H`          visarga
-  `~N`         ña
-  `~n`         ña, subject to the selected convention
+  ITRANS                  Devanagari   Notes
+  ----------------------- ------------ ---------------------------------
+  `a`                     अ            inherent vowel after consonants
+  `aa` / `A`              आ / ा
+  `i`                     इ / ि
+  `ii` / `I`              ई / ी
+  `u`                     उ / ु
+  `uu` / `U`              ऊ / ू
+  `RRi` / `R^i`           ऋ / ृ        vocalic ṛ
+  `RRI` / `R^I`           ॠ / ॄ        vocalic ṝ
+  `LLi` / `L^i`           ऌ / ॢ        vocalic ḷ
+  `e`, `ai`, `o`, `au`    ए ऐ ओ औ
+  `k kh g gh ~N`          क ख ग घ ङ    `~N` is ṅa (velar nasal)
+  `ch Ch j jh ~n`         च छ ज झ ञ    `ch` is unaspirated; `chh` = `Ch`;
+                                       `JN` = `~n`
+  `T Th D Dh N`           ट ठ ड ढ ण
+  `t th d dh n`           त थ द ध न
+  `p ph b bh m`           प फ ब भ म
+  `y r l v`               य र ल व      `w` = `v`
+  `sh Sh s h`             श ष स ह      `shh` = `Sh`
+  `L` / `ld`              ळ            Vedic ḷa
+  `x` / `kSh`             क्ष
+  `GY` / `j~n` / `dny`    ज्ञ
+  `M`                     ं             anusvara
+  `H`                     ः             visarga
+  `.N`                    ँ             chandrabindu
+  `.a`                    ऽ            avagraha
+  `.h`                    ्             explicit virama
+  `{}`                    (nothing)    separator that blocks a conjunct
+  `OM`                    ॐ
+  `|` / `||`              । / ॥
+  `_`                     ॒ U+0952     anudātta (§5.3)
+  `'`                     ॑ U+0951     svarita (§5.3)
+  `'''`                   ᳚ U+1CDA     double svarita (§5.3)
 
-The complete table must live in documented, testable mapping data or
-code---not be scattered through UI event handlers.
+The complete table must live in documented, testable mapping data, not
+in UI event handlers. The table must also define:
 
-### 5.3 Incremental parsing
+-   How digits are handled (ASCII or Devanagari digits); this must be a
+    documented option.
+-   Input sequences for ZWJ (U+200D) and ZWNJ (U+200C), which control
+    conjunct rendering.
 
-The parser must support real-time conversion while the user types.
+### 5.3 Vedic accent input
 
-It must handle:
+Vedic accents are typed directly in the ITRANS source with these
+sequences. This is the project's accent scheme for version 1 and is
+required, not illustrative.
 
--   Complete sequences.
--   Incomplete sequences.
--   Ambiguous prefixes.
--   Multi-character consonants.
--   Long vowels.
--   Special transliteration tokens.
--   Whitespace and punctuation.
--   Backspace and insertion in the middle of text.
+  Accent           Sequence   Code point   Unicode name                     Appearance
+  ---------------- ---------- ------------ -------------------------------- ---------------------------
+  Anudātta         `_`        U+0952       DEVANAGARI STRESS SIGN ANUDATTA  horizontal line below
+  Svarita          `'`        U+0951       DEVANAGARI STRESS SIGN UDATTA    vertical line above
+  Double svarita   `'''`      U+1CDA       VEDIC TONE DOUBLE SVARITA        two vertical lines above
 
-The parser should retain a small pending-input buffer when a sequence
-may continue. It must provide a predictable way to commit pending input,
-such as a delimiter, timeout or explicit action.
+The udātta is left unmarked. This matches the Ṛgveda convention in
+§6.2. Note that U+0951 is named *UDATTA* in Unicode but is used here
+for the svarita; the UI must show the traditional name.
 
-Do not require Enter after every word.
+**Example** (Ṛgveda 1.1.1):
 
-### 5.4 Editing in the middle of input
+``` text
+a_gnimii'Le pu_rohi'taM ya_j~nasya' de_vamR^i_tvija'm
+अ॒ग्निमी॑ळे पु॒रोहि॑तं य॒ज्ञस्य॑ दे॒वमृ॒त्विज॑म्
+```
 
-A naive append-only converter is insufficient. The user must be able to
-place the cursor in the middle of the ITRANS text, insert or delete
-characters, and obtain correct output.
+**Rules:**
 
-The implementation may initially reprocess the affected word or line
-rather than the entire document. Correctness is more important than
-premature optimisation.
+-   **Position.** The accent sequence is typed immediately after the
+    vowel of the accented syllable (`pu_`, `hi'`, `ja'`). For a syllable
+    with the inherent vowel, it follows the `a` (`ya_`). The mark is
+    written after the vowel sign in the output, so it attaches to the
+    whole syllable.
+-   **Anusvara, visarga and chandrabindu.** Both `aM'` and `a'M` are
+    accepted. The output uses one documented order of accent and
+    anusvara/visarga/chandrabindu, chosen in Phase 3 by rendering tests
+    with the bundled fonts.
+-   **Longest match.** `'''` is read before `'`. A run of apostrophes
+    must have length 1 or 3. Any other length (`''`, `''''`) is not
+    converted to marks: it is passed through unchanged and the segment
+    is flagged with a conversion error, so that a typing slip never
+    produces a wrong but plausible accent.
+-   **Accent without a vowel.** An accent sequence at the start of a
+    line, after a space, or after a consonant with no vowel is passed
+    through unchanged and flagged.
+-   **Literal characters.** In the ITRANS source, `'` and `_` always
+    mean accents. A literal apostrophe or underscore is typed directly
+    in the output pane.
+-   **Deviation from ITRANS 5.3.** This scheme is a project choice and
+    takes precedence over any other meaning `'` or `_` has in the ITRANS
+    reference. The deviation is recorded in `docs/itrans-mappings.md`.
+-   **Other scripts.** The three marks are kept as the same code points
+    when the output is Kannada or Tamil. Their rendering in each script
+    must be verified in the Phase 3 font tests.
+-   **Distinct characters.** Double svarita is always U+1CDA. It must
+    never be produced as two U+0951 marks, and two U+0951 marks must
+    never be shown or reported as a double svarita.
 
-### 5.5 Parser interface
+### 5.4 Conversion granularity
 
-A possible Go interface:
+Conversion is cheap. On every source change, the affected segments are
+re-converted in full from their source line. No incremental parser state
+is kept between keystrokes.
 
-``` go
-type Transliterator interface {
-    Convert(input string, scheme string) (string, error)
+-   Incomplete sequences are shown as their partial result: typing `k`
+    shows क्, then `ka` shows क. The input pane itself is the pending
+    buffer, so no commit timeout or delimiter is required.
+-   Inserting or deleting in the middle of a line is handled by
+    re-converting that line.
+-   The user never has to press Enter to commit a word.
+
+The parser must still handle complete and incomplete sequences,
+ambiguous prefixes (longest match), multi-character consonants, long
+vowels, special tokens, whitespace and punctuation. Sequences that are
+not valid ITRANS are passed through unchanged and the segment is marked
+with a conversion error (§4.4).
+
+### 5.5 Conversion interfaces
+
+Conversion runs in the frontend (TypeScript); see §18, decision 2.
+
+``` ts
+interface Transliterator {
+  // Converts one source line. Never throws; problems are reported.
+  convert(source: string, targetScript: Script): ConversionResult;
+}
+
+interface ConversionResult {
+  text: string;
+  issues: ConversionIssue[]; // e.g. unknown sequence at offset 12
 }
 ```
 
-For an incremental frontend implementation, define a separate interface
-that can represent pending input and changed ranges. The exact API
-should be selected after the editor component is chosen.
+The Go daemon does not transliterate. If a Go implementation is ever
+needed (for example a command-line batch converter), it must pass the
+same test corpus.
 
 ### 5.6 Existing transliteration engines
 
-Evaluate before implementing a complete engine from scratch:
+  Candidate                       Licence*     Fit
+  ------------------------------- ------------ -------------------------
+  `@indic-transliteration/        MIT          JavaScript, runs in the
+  sanscript`                                   browser, data-driven
+                                               schemes, supports ITRANS,
+                                               Devanagari, Kannada, Tamil.
+                                               **Provisional choice.**
+  Aksharamukha                    AGPL-3.0     Python; licence is
+                                               incompatible with an
+                                               MIT/Apache app if linked.
+                                               May be used offline as a
+                                               test oracle only.
+  Lipika IME                      GPL-3.0      macOS input method, not a
+                                               library. Reference only.
+  Samsaadhanii                    ---          Reference only.
 
--   Aksharamukha: https://github.com/virtualvinodh/aksharamukha
--   Lipika IME: https://github.com/ratreya/lipika-ime
--   Samsaadhanii transliteration resources:
-    https://sanskrit.uohyd.ac.in/manual/transliterate/
+\* Licences must be confirmed from each project's current `LICENSE`
+file before use.
 
-For each candidate, verify:
+Before adoption, the provisional choice must pass the Phase 2 test
+corpus for:
 
--   License and redistribution compatibility.
--   ITRANS convention and mapping coverage.
+-   ITRANS 5.3 coverage, including the alternatives in §5.2.
 -   Devanagari output correctness.
--   Vedic accent handling.
 -   Kannada and Tamil conversion.
--   Preservation of combining marks.
--   Browser or Go integration feasibility.
--   Maintenance status and dependency footprint.
+-   Preservation of combining marks and of unmapped characters.
+-   Whether the accent scheme in §5.3 (`_`, `'`, `'''`) can be added as
+    a custom scheme, or must be handled by a project-owned layer before
+    or after the library call.
+
+If it fails, the project implements its own table-driven converter from
+`docs/itrans-mappings.md`. ITRANS is small enough (about 100 tokens,
+longest-match parsing) that this is a reasonable fallback. Either way,
+the project's own test corpus is the authority, not the library.
+
+The accent rules in §5.3 (position, run lengths, error flagging) are
+project-specific and are owned and tested by the project whichever
+engine is used.
 
 Do not assume a general transliterator supports Vedic marks correctly.
 
@@ -456,23 +624,31 @@ Only ITRANS is required for the first usable release.
 The application must store actual Unicode characters, not proprietary
 font glyph codes or legacy ANSI encodings.
 
-The canonical document must preserve combining marks, viramas, vowel
-signs, punctuation and Vedic characters.
+The document must preserve combining marks, viramas, vowel signs,
+punctuation, Vedic characters, ZWJ/ZWNJ, avagraha, danda and double
+danda, nukta and OM.
 
-### 6.2 Required Vedic features
+### 6.2 Vedic accents depend on the tradition
 
-The first release should investigate and support at least:
+The same Unicode character means different things in different Vedic
+traditions, and Unicode character names do not match traditional usage.
 
--   Udātta.
--   Anudātta.
--   Svarita.
--   Independent svarita where applicable.
--   Relevant Vedic accent variants.
--   Relevant Vedic Extensions characters.
--   Other symbols required by the target Vedic text traditions.
+For example, in the common Ṛgveda (Śākala) Devanagari convention the
+vertical stroke above, U+0951 (Unicode name *DEVANAGARI STRESS SIGN
+UDATTA*), marks the **svarita**, the horizontal stroke below, U+0952,
+marks the **anudātta**, and the udātta is left unmarked. Taittirīya,
+Śukla Yajurveda and Sāmaveda texts (the last with numerals above the
+letters, U+A8E0--U+A8F1) use other conventions.
 
-The precise inventory must be documented. Similar-looking marks must not
-be treated as interchangeable.
+The first release must:
+
+-   Document the accent inventory **per tradition**, starting with the
+    traditions the project's users actually need (to be confirmed;
+    §18, decision 6).
+-   Label accents by their traditional meaning in the selected
+    tradition, with the Unicode name shown only as secondary
+    information.
+-   Never treat similar-looking marks as interchangeable.
 
 ### 6.3 Unicode references
 
@@ -492,7 +668,8 @@ supported character:
   Display glyph    Character as rendered in the project's test font
   Code point       Unicode code point
   Unicode name     Official Unicode character name
-  Vedic meaning    Usage or traditional name, where verified
+  Tradition(s)     Traditions that use it
+  Vedic meaning    Traditional meaning in each tradition, where verified
   Category         Combining mark, independent sign, punctuation, etc.
   Input mapping    Optional keyboard sequence
   Script support   Tested output scripts
@@ -501,14 +678,14 @@ supported character:
 
 ### 6.4 Symbol palette
 
-Provide a searchable or categorised Vedic symbol palette.
+Provide a searchable Vedic symbol palette, grouped by tradition.
 
 The palette must:
 
--   Display the symbol.
--   Display its name.
--   Show its Unicode code point.
--   Insert the character at the output editor's current cursor position.
+-   Let the user choose the tradition; remember the choice per document.
+-   Display the symbol, its traditional name, its Unicode name and code
+    point.
+-   Insert the character at the output editor's cursor position.
 -   Preserve the current selection/cursor behaviour.
 -   Support keyboard accessibility.
 -   Permit future configurable mappings.
@@ -517,12 +694,14 @@ Example layout:
 
 ``` text
 +------------------------------------------------+
-| VEDIC SYMBOLS                                  |
+| VEDIC SYMBOLS        Tradition: [Ṛgveda    ▾]  |
 +------------------------------------------------+
-| Udatta      Anudatta      Svarita              |
-|   [mark]      [mark]        [mark]              |
+| Svarita      Anudātta     Double svarita       |
+|   [mark]      [mark]        [mark]             |
+|   U+0951      U+0952        U+1CDA             |
+|   '           _             '''                |
 |                                                |
-| Additional Vedic signs                         |
+| Other signs                                    |
 | [sign] [sign] [sign] [sign]                    |
 +------------------------------------------------+
 ```
@@ -532,10 +711,11 @@ must be indicated rather than represented by a misleading substitute.
 
 ### 6.5 Keyboard mappings
 
-Vedic symbols should eventually be insertable through configurable
-sequences.
-
-Do not invent or hardcode Baraha key mappings without verification.
+-   Version 1 supports `_` (anudātta), `'` (svarita) and `'''` (double
+    svarita) in the ITRANS source (§5.3).
+-   The palette shows each mark's input sequence.
+-   Further accents should be insertable through configurable sequences.
+-   Do not invent or hardcode Baraha key mappings without verification.
 
 Mappings should be data-driven and documented. An illustrative
 configuration structure:
@@ -561,22 +741,23 @@ Vedic marks may be combining characters. The editor must:
 -   Avoid stripping marks during normalization.
 -   Avoid splitting a base character from its combining marks during
     editing where the editor permits grapheme-aware handling.
+-   Preserve ZWJ and ZWNJ.
 -   Test cursor movement, deletion and selection around combining
     sequences.
 -   Test multiple marks attached to one base character.
 -   Test rendering in every supported output script.
 
-Do not apply Unicode normalization blindly. NFC may be useful for some
-text, but every normalization operation must be tested against the Vedic
-corpus. Exact preservation is the default.
+No Unicode normalization is applied anywhere in version 1. Exact
+preservation is the rule. Any later normalization feature must be an
+explicit user action and must be tested against the Vedic corpus.
 
 ### 6.7 Vedic correctness
 
 Rendering and encoding are separate concerns. A character can be
 correctly stored but displayed incorrectly by a font or browser.
 
-The project must maintain verified sample passages and screenshots or
-visual test references for supported font/browser combinations. A text
+The project must maintain verified sample passages and screenshot
+references for supported font/browser combinations (§13.6). A text
 comparison alone is not enough to validate visual placement of accents.
 
 ------------------------------------------------------------------------
@@ -606,52 +787,55 @@ The conversion layer must preserve, where representable:
 -   Vowels and consonants.
 -   Dependent vowel signs.
 -   Virama and conjunct formation.
+-   ZWJ and ZWNJ.
 -   Anusvara and visarga.
 -   Chandrabindu.
+-   Avagraha, danda, double danda and OM.
 -   Vedic marks.
 -   Punctuation.
--   Whitespace and line breaks.
+-   Whitespace.
 
-Unsupported characters must be preserved or reported. They must not
-silently disappear.
+Unsupported characters must be left unchanged and reported. They must
+not silently disappear.
 
-### 7.3 Tamil-specific considerations
+### 7.3 Tamil convention
 
-Tamil script does not encode every Sanskrit phonemic distinction with a
-separate basic consonant in the same way as Devanagari or Kannada.
+Tamil script does not have separate letters for every Sanskrit
+consonant.
 
-The project must choose and document a conversion convention. It must
-not claim that all conversions are perfectly reversible.
+The default convention is **Tamil with superscript numerals**: the
+aspirated and voiced consonants are written with a superscript digit
+(for example क → க, ख → க², ग → க³, घ → க⁴), and the Grantha letters that are
+part of the Tamil Unicode block (ஜ ஷ ஸ ஹ க்ஷ) are used where they
+exist. The position of the superscript relative to vowel signs must be
+chosen and documented in `docs/script-conversion.md`.
 
-Where a distinction cannot be represented natively, the converter should
-follow a documented convention and expose any loss or ambiguity.
+-   Superscripted Tamil converts back to Devanagari for the documented
+    scope. Round-trip tests must prove this.
+-   Plain Tamil without superscripts may be offered later as an option;
+    it is lossy and conversion back to Devanagari must report every
+    ambiguous character.
+-   The converter must never claim that a lossy conversion was exact.
 
 ### 7.4 Script converter interface
 
-A possible Go interface:
-
-``` go
-type ScriptConverter interface {
-    Convert(
-        input string,
-        sourceScript string,
-        targetScript string,
-    ) (string, error)
+``` ts
+interface ScriptConverter {
+  // Converts one line; text in other scripts passes through unchanged.
+  convert(text: string, from: Script, to: Script): ConversionResult;
+  // Detects the script of each run of characters by Unicode block.
+  detect(text: string): ScriptRun[];
 }
 ```
 
-The actual implementation may use an external library or a frontend
-module. Keep the conversion layer independent of the editor UI.
+The conversion layer is a plain TypeScript module with no dependency on
+the editor UI, so it can be tested on its own.
 
 ### 7.5 Script switching and manual edits
 
-Script switching must work after manual output edits.
-
-The application must not discard manual edits when the user selects
-another script. It must convert the current canonical content or report
-which characters cannot be converted.
-
-The source ITRANS pane remains unchanged.
+Script switching follows §4.6. It must work after manual output edits,
+must not discard them, and must report what could not be converted. The
+ITRANS source remains unchanged.
 
 ------------------------------------------------------------------------
 
@@ -659,21 +843,24 @@ The source ITRANS pane remains unchanged.
 
 ### 8.1 Technology
 
-Recommended initial stack:
+-   HTML5 and CSS.
+-   TypeScript.
+-   CodeMirror 6 for both panes (provisional; see below).
+-   No UI framework. The UI is small enough for plain TypeScript
+    components.
+-   Built with Vite into static files that are embedded in the Go
+    binary.
 
--   HTML5.
--   CSS.
--   TypeScript or modern JavaScript.
--   CodeMirror 6 or another mature editor component.
--   Browser Unicode text rendering.
--   Go-served static frontend assets.
+The segment model (§4) needs range tracking across edits and gutter
+markers, which CodeMirror 6 provides (state fields, decorations, gutter
+extensions, history that maps through non-history changes). A plain
+textarea cannot show gutter markers and would need the segment model to
+be simplified.
 
-Evaluate CodeMirror 6 and a native textarea before committing. The
-selected component must be tested with Indic combining marks, clipboard,
-undo/redo and cursor behaviour.
-
-A plain textarea is an acceptable fallback if it proves more reliable
-for the required Unicode editing behaviour.
+A Phase 1 spike must confirm CodeMirror 6 with Indic combining marks,
+clipboard, undo/redo, cursor movement and IME composition in Chrome,
+Firefox and Safari before the choice is final. A hand-written
+`contenteditable` editor is excluded.
 
 ### 8.2 Frontend component layout
 
@@ -682,6 +869,8 @@ Suggested structure:
 ``` text
 frontend/
   index.html
+  package.json
+  vite.config.ts
   src/
     app.ts
     components/
@@ -691,19 +880,25 @@ frontend/
       SymbolPalette.ts
       Toolbar.ts
       StatusBar.ts
-    services/
+      DocumentBrowser.ts
+    model/
+      segments.ts          # segment list and the rules in §4.2--4.3
+      segment-tracking.ts  # CodeMirror state fields and gutters
+    conversion/
       transliteration.ts
       script-conversion.ts
-      document-manager.ts
-      clipboard.ts
-    state/
-      document-state.ts
-      history.ts
+      mappings/            # data tables, see docs/itrans-mappings.md
+    services/
+      api.ts               # calls to the Go daemon
+      recovery.ts
     styles/
       editor.css
       layout.css
   assets/
     fonts/
+  tests/
+    unit/
+    e2e/
 ```
 
 ### 8.3 Font strategy
@@ -715,18 +910,18 @@ Evaluate appropriate fonts for:
 -   Tamil.
 -   Vedic Extensions and combining marks.
 
-Candidate font families include the Noto Sans Indic families, but no
-font should be assumed to cover every Vedic character correctly.
+The Noto families (OFL-1.1) are the baseline and may be bundled (§16.5).
+No font should be assumed to cover every Vedic character correctly;
+fonts with better Vedic coverage must be evaluated and, if their licence
+does not allow bundling, supported as user-installed fonts.
 
-The application should allow font selection. Font licences and
-redistribution terms must be checked before bundling fonts.
+The user can choose a font per script (§9.6, `editor.fonts`).
 
 ### 8.4 Rendering tests
 
 Test at minimum:
 
--   macOS with the supported browser(s).
--   Chrome and Firefox where practical.
+-   macOS with Chrome, Firefox and Safari.
 -   Each output script.
 -   Vedic combining marks.
 -   Multiple accents on one base character.
@@ -739,51 +934,48 @@ Test at minimum:
 
 ### 9.1 Responsibilities
 
-The Go daemon serves the application and provides local document
-services.
+The Go daemon:
 
-It should handle:
+-   Serves the frontend assets, embedded in the binary.
+-   Issues the browser session (§9.5).
+-   Lists, opens and saves documents within configured folders.
+-   Imports uploaded files and stores recovery snapshots and backups.
+-   Reads and writes editor settings.
 
--   Serving frontend assets.
--   Health and configuration endpoints.
--   Opening and saving documents.
--   Import and export.
--   Local settings.
--   Optional conversion endpoints.
--   Future extension points.
+It does **not** transliterate, convert scripts or normalize text. All
+conversion happens in the frontend.
 
-Real-time keystroke conversion should preferably happen in the frontend
-to avoid an HTTP round trip for every keystroke. If a vetted Go
-conversion engine is selected, it may be used locally in the process
-instead.
+A webview shell (for example Wails) would give native file dialogs and
+no open port, but adds a native toolchain. Version 1 uses the browser
+and daemon; the trade-off is recorded in §18, decision 11.
 
 ### 9.2 Suggested repository structure
 
 ``` text
-vedic-editor/
+paramaakshara/
   cmd/
-    vedic-editor/
+    paramaakshara/
       main.go
 
   internal/
     server/
       server.go
       routes.go
+      auth.go           # session cookie, Host/Origin checks
     document/
-      manager.go
-      storage.go
-    transliteration/
-      itrans.go
-      parser.go
-    script/
-      converter.go
+      store.go          # os.Root based access, atomic writes
+      revision.go
+      backup.go
+      recovery.go
+    project/
+      format.go         # .paramaakshara.json schema and validation
     config/
       config.go
+      paths.go          # per-OS config, data and log directories
+    instance/
+      instance.go       # single-instance detection, session file
 
-  frontend/
-    index.html
-    src/
-    assets/
+  frontend/             # see §8.2; built output embedded via go:embed
 
   docs/
     architecture.md
@@ -791,6 +983,7 @@ vedic-editor/
     vedic-symbols.md
     unicode-handling.md
     script-conversion.md
+    adr/
 
   testdata/
     itrans/
@@ -801,6 +994,7 @@ vedic-editor/
   README.md
   TECH_SPEC.md
   CONTRIBUTING.md
+  THIRD_PARTY_NOTICES.md
   LICENSE
   go.mod
 ```
@@ -810,118 +1004,350 @@ the implementation evolves.
 
 ### 9.3 HTTP API
 
-Initial endpoints:
+All `/api` endpoints except `/api/health` require the session cookie
+(§9.5). Documents are identified by `{root, path}`: `root` is the name
+of a configured document folder and `path` is a relative path inside
+it. Absolute paths are never accepted from the browser.
 
-  Method   Path              Purpose
-  -------- ----------------- ---------------------------------------------
-  GET      `/`               Serve editor
-  GET      `/api/health`     Health check
-  GET      `/api/config`     Read configuration
-  GET      `/api/document`   Open a document by safe document identifier
-  POST     `/api/document`   Save a document
-  POST     `/api/import`     Import a supported file
-  POST     `/api/export`     Export document content
+  Method   Path                      Purpose
+  -------- ------------------------- --------------------------------------
+  GET      `/auth?token=…`           Exchange the launch token for a
+                                     session cookie; redirect to `/`
+  GET      `/`                       Serve the editor
+  GET      `/api/health`             `{"app":"paramaakshara","version":…}`
+  GET      `/api/config`             Editor settings and read-only
+                                     information (roots, limits)
+  PUT      `/api/config/editor`      Update editor settings only
+  GET      `/api/documents?root=`    List documents in a folder
+  GET      `/api/document?root=&path=` Open a document
+  PUT      `/api/document`           Save a document
+  POST     `/api/import`             Upload a file chosen from anywhere
+                                     on the computer (multipart)
+  GET      `/api/recovery`           List recovery snapshots
+  PUT      `/api/recovery/{key}`     Store a recovery snapshot
+  DELETE   `/api/recovery/{key}`     Discard a recovery snapshot
+  POST     `/api/shutdown`           Stop the daemon
+
+Export as a download is done in the browser (Blob download) and needs no
+endpoint. Export into a document folder uses `PUT /api/document`.
 
 Example save request:
 
 ``` json
 {
-  "document_id": "local-document-id",
-  "name": "rigveda.txt",
-  "script": "devanagari",
-  "content": "अग्निम् ईळे पुरोहितम्"
+  "root": "Documents",
+  "path": "rigveda/mandala-1.paramaakshara.json",
+  "base_revision": "sha256:9f2c…",
+  "content": "{ … project file … }"
 }
 ```
 
-The API must use safe document identifiers rather than trusting
-arbitrary filesystem paths supplied by the browser.
+Example responses:
+
+``` json
+{ "revision": "sha256:41ab…" }
+```
+
+``` json
+{
+  "error": {
+    "code": "conflict",
+    "message": "The file changed on disk since it was opened.",
+    "current_revision": "sha256:77d0…"
+  }
+}
+```
+
+Error codes: `bad_request`, `unauthorized`, `forbidden`, `not_found`,
+`conflict`, `too_large`, `invalid_utf8`, `internal`.
 
 ### 9.4 Document API semantics
 
--   Save operations must preserve UTF-8 content.
--   The backend must not transliterate or normalize document content
-    unless explicitly requested.
--   Errors must be returned in a structured format.
--   Writes should be atomic where practical (write temporary file, then
-    rename).
--   The backend should prevent path traversal.
--   File size limits should be configurable.
+-   **Revisions:** the revision is the SHA-256 of the file bytes. A save
+    must include `base_revision` (empty for a new file). If the file on
+    disk has a different revision, or a new file already exists, the
+    save fails with `conflict` (HTTP 409) and nothing is written.
+-   **Atomic writes:** write a temporary file in the same directory,
+    `fsync`, then rename over the target.
+-   **Backups:** before overwriting, copy the previous version to the
+    backups directory (§9.6, `documents.backup_count`).
+-   **Encoding:** files must be valid UTF-8. Invalid UTF-8 is rejected
+    with `invalid_utf8`; it is never replaced with U+FFFD. A leading BOM
+    is removed on open, remembered, and written back on save.
+-   **Line endings:** LF and CRLF are detected on open, LF is used in
+    the editor, and the original style is written back on save.
+-   **No content changes:** the backend never transliterates or
+    normalizes document content.
+-   **Path safety:** all file access goes through `os.Root` opened on
+    the configured folder, which rejects `..`, absolute paths and
+    symlinks that escape the folder.
+-   **Size limit:** requests and files larger than
+    `documents.max_document_bytes` are rejected with `too_large`.
 
 ### 9.5 Local security
 
--   Bind to `127.0.0.1` by default.
--   Do not listen on all network interfaces unless the user explicitly
-    configures it.
--   Restrict file access to configured directories.
--   Validate document identifiers and file names.
--   Protect state-changing endpoints against cross-origin requests.
--   Do not execute shell commands based on document content.
--   Avoid logging document text by default.
--   Do not transmit document content to external services.
+A server on `127.0.0.1` can still be reached by any web page the user
+visits (cross-site requests, DNS rebinding). The following are
+requirements, not options:
 
-The browser-to-daemon origin and authentication strategy must be
-documented. A random local session token or equivalent protection should
-be considered for state-changing endpoints.
+-   **Loopback only.** `server.listen_address` must be a loopback
+    address; the daemon refuses to start otherwise.
+-   **Host check.** Every request must have a `Host` header of
+    `127.0.0.1:<port>` or `localhost:<port>`; others get 403. This
+    blocks DNS rebinding.
+-   **Session token.** At startup the daemon generates a 32-byte random
+    token (`crypto/rand`). It opens the browser at
+    `http://127.0.0.1:<port>/auth?token=<token>`. `/auth` checks the
+    token, sets the cookie `pak_session` (`HttpOnly`,
+    `SameSite=Strict`, `Path=/`) and redirects to `/`. The token is
+    single-use; the cookie value is a separate random session ID.
+-   **Origin check.** Every request other than GET must have an `Origin`
+    header equal to the daemon's own origin.
+-   **No CORS.** The daemon never sends `Access-Control-Allow-*`
+    headers.
+-   **Content Security Policy.** `default-src 'self'`; no inline
+    scripts; fonts and scripts are served by the daemon, never from a
+    CDN.
+-   **Restricted files.** File access is limited to configured document
+    folders (§9.4).
+-   **Settings boundary.** The browser can change editor settings only.
+    The listen address, port, document folders and limits can be
+    changed only by editing the config file, so a compromised page
+    cannot widen file access.
+-   **No shell commands** based on document content.
+-   **No document text in logs** (§9.8).
+-   **No network calls** to external services.
+
+### 9.6 Configuration
+
+**Precedence (lowest to highest):** built-in defaults, config file,
+environment variables, command-line flags.
+
+**Locations** (resolved with `os.UserConfigDir` and friends):
+
+  Item              macOS                                          Linux
+  ----------------- ---------------------------------------------- -----------------------------------
+  Config file       `~/Library/Application Support/Paramaakshara/`  `~/.config/paramaakshara/`
+                    `config.json`                                  `config.json`
+  Session file      same directory, `session.json` (mode 0600)     same directory
+  Recovery          `…/Paramaakshara/recovery/`                     `~/.local/state/paramaakshara/`
+                                                                   `recovery/`
+  Backups           `…/Paramaakshara/backups/`                      `~/.local/state/paramaakshara/`
+                                                                   `backups/`
+  Logs              `~/Library/Logs/Paramaakshara/`                 `~/.local/state/paramaakshara/`
+                    `paramaakshara.log`                             `paramaakshara.log`
+  Default folder    `~/Documents/Paramaakshara/`                    `~/Documents/Paramaakshara/`
+
+The config file is JSON so it can be read and written with the standard
+library. If it does not exist, the daemon starts with defaults and does
+not create it until a setting is changed. The default document folder is
+created on first run.
+
+**Example `config.json`** (all keys optional):
+
+``` json
+{
+  "server": {
+    "listen_address": "127.0.0.1",
+    "port": 7531,
+    "open_browser": true
+  },
+  "documents": {
+    "roots": [
+      { "name": "Documents", "path": "~/Documents/Paramaakshara" }
+    ],
+    "max_document_bytes": 10485760,
+    "backup_count": 5
+  },
+  "recovery": {
+    "interval_seconds": 15,
+    "retention_days": 30
+  },
+  "logging": {
+    "file": "",
+    "max_backups": 14
+  },
+  "editor": {
+    "input_scheme": "itrans",
+    "output_script": "devanagari",
+    "tamil_convention": "superscript",
+    "vedic_tradition": "rigveda",
+    "digits": "devanagari",
+    "fonts": {
+      "devanagari": "Noto Serif Devanagari",
+      "kannada": "Noto Serif Kannada",
+      "tamil": "Noto Serif Tamil"
+    },
+    "font_size_px": 20,
+    "layout": "side-by-side",
+    "autosave_to_file": false
+  }
+}
+```
+
+**Keys:**
+
+  Key                              Default                   Set from UI   Notes
+  -------------------------------- ------------------------- ------------- --------------------------------
+  `server.listen_address`          `127.0.0.1`               no            Loopback only (§9.5).
+  `server.port`                    `7531`                    no            Fixed so the browser origin,
+                                                                           cookie and bookmarks stay the
+                                                                           same across launches.
+  `server.open_browser`            `true`                    no            Open the editor on launch.
+  `documents.roots`                one folder (above)        no            Name/path pairs; `~` expanded.
+  `documents.max_document_bytes`   10 MiB                    no
+  `documents.backup_count`         `5`                       no            Backups kept per document;
+                                                                           `0` disables.
+  `recovery.interval_seconds`      `15`                      no            Snapshot interval while dirty.
+  `recovery.retention_days`        `30`                      no            Old snapshots are deleted.
+  `logging.file`                   per-OS path (above)       no            Empty means the default path.
+  `logging.max_backups`            `14`                      no            Rotated log files kept.
+  `editor.input_scheme`            `itrans`                  yes           Only `itrans` in v1.
+  `editor.output_script`           `devanagari`              yes           Default for new documents.
+  `editor.tamil_convention`        `superscript`             yes           §7.3.
+  `editor.vedic_tradition`         `rigveda`                 yes           Default palette grouping (§6.4).
+  `editor.digits`                  `devanagari`              yes           `devanagari` or `ascii` (§5.2).
+  `editor.fonts`                   Noto families             yes           Per script.
+  `editor.font_size_px`            `20`                      yes
+  `editor.layout`                  `side-by-side`            yes           Or `stacked`.
+  `editor.autosave_to_file`        `false`                   yes           Recovery snapshots are always
+                                                                           on; this also saves the file
+                                                                           itself (§10.4).
+
+**Environment variables:** `PARAMAAKSHARA_CONFIG` (config file path),
+`PARAMAAKSHARA_PORT`.
+
+**Command-line flags:** `--config <path>`, `--port <n>`, `--no-browser`,
+`--version`.
+
+Unknown keys are reported as a warning at startup and ignored. Invalid
+values (for example a non-loopback address or a port outside 1024--65535)
+stop the daemon with a message naming the key.
+
+### 9.7 Startup, single instance and shutdown
+
+1.  Load configuration (§9.6).
+2.  Try to listen on `listen_address:port`.
+3.  If the port is in use, call `/api/health` on it:
+    -   If it is Paramaakshara, read the running instance's
+        `session.json`, open the browser at its `/auth` URL, and exit.
+        (The running instance issues a fresh single-use token for this
+        and writes it to `session.json`.)
+    -   Otherwise exit with an error that names the port and the
+        `server.port` setting / `--port` flag. The daemon does not pick
+        another port silently, because the origin would change.
+4.  Write `session.json` (`port`, `pid`, current launch token; mode
+    0600).
+5.  Open the browser (`open` on macOS, `xdg-open` on Linux, run with
+    `os/exec` and no shell) unless `--no-browser`.
+6.  On SIGINT, SIGTERM or `POST /api/shutdown`: stop accepting
+    requests, finish in-flight writes, remove `session.json`, exit.
+
+### 9.8 Logging
+
+-   Standard library `log`, configured with `log.SetFlags(log.LstdFlags)`
+    and `log.SetOutput` to the log file. Messages are plain text,
+    unquoted.
+-   The log file is written through `gopkg.in/natefinch/lumberjack.v2`,
+    rotated daily by calling `Rotate()`; `logging.max_backups` files are
+    kept.
+-   Log startup, configuration warnings, request method, path, status
+    and duration, and errors.
+-   Never log document content, the `/auth` query string (it contains
+    the token) or cookie values.
 
 ------------------------------------------------------------------------
 
 ## 10. Document storage and file formats
 
-### 10.1 Initial formats
+### 10.1 Formats
 
-Required:
+  Format                  Extension               Open   Save   Notes
+  ----------------------- ----------------------- ------ ------ ---------------------------
+  Paramaakshara project   `.paramaakshara.json`   yes    yes    Native format; keeps source,
+                                                                output and segment state.
+  UTF-8 plain text        `.txt`                  yes    yes    Output only. Opened as
+                                                                output-only segments.
+  ITRANS source           `.itx`, `.txt`          yes    yes    Imported into the input pane
+                                                                as linked segments ("Import
+                                                                as ITRANS").
 
--   UTF-8 plain text (`.txt`).
--   UTF-8 Markdown (`.md`).
+Future possibilities: Markdown, HTML, DOCX and PDF export; Baraha
+legacy-format import; other legacy Sanskrit encodings, subject to
+licensing and technical feasibility.
 
-Future possibilities:
+### 10.2 Plain-text export
 
--   HTML.
--   DOCX export.
--   PDF export.
--   Baraha legacy-format import.
--   Other legacy Sanskrit encodings, subject to licensing and technical
-    feasibility.
+Exported plain text is the output lines joined by line breaks. It
+contains the actual Unicode document, not the transliteration source or
+font-specific codes. Plain-text export is always available.
 
-### 10.2 Canonical file content
-
-Exported plain text must contain the actual Unicode document, not
-transliteration source or font-specific codes.
-
-### 10.3 Project document format
-
-A project-specific container may preserve both source and output state.
-It should be versioned and documented.
-
-Illustrative metadata:
+### 10.3 Project file format
 
 ``` json
 {
+  "format": "paramaakshara",
   "format_version": 1,
-  "name": "rigveda",
+  "converter_version": "itrans-5.3/1",
   "input_scheme": "itrans",
   "output_script": "devanagari",
-  "source_text": "agnim iiLe purohitaM",
-  "content": "अग्निम् ईळे पुरोहितम्"
+  "tamil_convention": "superscript",
+  "vedic_tradition": "rigveda",
+  "segments": [
+    {
+      "source": "agnim iiLe purohitaM",
+      "output": "अग्निम् ईळे पुरोहितम्",
+      "linked": true
+    },
+    {
+      "source": "yaj~nasya devam",
+      "output": "यज्ञस्य देवम्",
+      "linked": false,
+      "stale": false
+    },
+    {
+      "source": null,
+      "output": "…",
+      "linked": false
+    }
+  ]
 }
 ```
 
-This is an illustrative schema. Decide whether to use JSON, a directory
-format or another container after evaluating document size and
-portability.
+-   Segment IDs are not stored; they are regenerated on open.
+-   The output of linked segments is stored too, so the file is readable
+    without the converter and survives converter changes.
+-   On open, if a linked segment's stored output differs from what the
+    current converter produces (for example after a mapping fix), the
+    stored output is kept, the segment is marked detached and stale,
+    and the user is told how many lines are affected. Text never
+    changes silently on open.
+-   Readers must reject files with a higher `format_version` than they
+    support, with a clear message.
+-   The schema is documented in `docs/architecture.md` and validated by
+    `internal/project`.
 
-The plain-text export must remain available regardless of the project
-container format.
+### 10.4 Autosave, recovery and backups
 
-### 10.4 Autosave and recovery
-
--   Show unsaved-change status.
--   Provide manual save.
--   Provide autosave.
--   Recover unsaved work after unexpected closure where feasible.
--   Keep a backup before overwriting an existing file.
--   Do not autosave in a way that overwrites a newer external version
-    without warning.
+-   **Unsaved status** is shown at all times.
+-   **Manual save** (Cmd-S) writes the file with the revision check
+    (§9.4).
+-   **Recovery snapshots:** while the document has unsaved changes, the
+    frontend sends the full project JSON to `PUT /api/recovery/{key}`
+    every `recovery.interval_seconds`, and when the page is hidden or
+    about to unload. `{key}` identifies the document (or an untitled
+    document) and stays the same for the browser session.
+-   **Recovery on open:** when a document is opened, or on startup for
+    untitled documents, if a snapshot is newer than the last save the
+    user is offered Restore or Discard.
+-   **Autosave to file** (`editor.autosave_to_file`, off by default)
+    also saves the file itself on the same interval, with the same
+    revision check.
+-   **Conflicts:** if a save fails with `conflict`, the user chooses
+    between Overwrite, Save As, and Reload from disk. Autosave never
+    overwrites; it stops and shows the conflict.
+-   **Backups:** the previous version is kept before every overwrite
+    (§9.4).
 
 ------------------------------------------------------------------------
 
@@ -931,19 +1357,21 @@ container format.
 
 -   Cmd-C copies the selected ITRANS source.
 -   Cmd-V pastes plain text into the input pane.
--   Pasted input is processed according to the selected input scheme.
+-   Pasted input is processed according to the selected input scheme and
+    the segment rules (§4.2).
 
 ### 11.2 Output pane
 
 -   Cmd-C copies Unicode text.
--   Cmd-V pastes Unicode text directly.
+-   Cmd-V pastes Unicode text directly, as plain text.
 -   Pasted Unicode must not be passed through ITRANS conversion.
--   Vedic combining marks and other Unicode characters must be
-    preserved.
--   Pasting must replace the current selection at the cursor.
+-   Vedic combining marks, ZWJ/ZWNJ and other Unicode characters must be
+    preserved exactly.
+-   Pasting replaces the current selection at the cursor and follows the
+    segment rules (§4.3).
 
-Prefer standard browser clipboard behaviour. Use the Clipboard API only
-where necessary and respect browser permission requirements.
+Use standard browser clipboard events. The asynchronous Clipboard API is
+not needed in version 1.
 
 ### 11.3 Clipboard acceptance test
 
@@ -959,14 +1387,15 @@ Initial editor functionality should include:
 
 -   Find text in the output document.
 -   Replace one occurrence.
--   Replace all occurrences.
+-   Replace all occurrences (one undoable operation).
 -   Find in the ITRANS source.
 -   Preserve combining marks during search and replacement.
 -   Navigate between matches.
 
-Search behaviour for visually equivalent but differently normalised
-Unicode sequences should be documented. Exact code-point search is the
-safest initial default.
+Search compares exact code points. Text that looks the same but uses
+different code points will not match; this is documented in
+`docs/unicode-handling.md`. Replacements in the output pane detach the
+segments they change (§4.3).
 
 ------------------------------------------------------------------------
 
@@ -987,23 +1416,21 @@ Cover:
 -   Anusvara.
 -   Visarga.
 -   Chandrabindu.
--   Special ITRANS sequences.
--   Ambiguous sequences.
--   Incomplete sequences.
+-   Avagraha, virama, separator `{}`, OM, danda.
+-   Vedic accents `_`, `'` and `'''` (§5.3), including every rule: position, anusvara order, invalid apostrophe runs, accents without a vowel.
+-   Every alternative spelling in §5.2.
+-   Ambiguous and incomplete sequences.
+-   Invalid sequences (passed through and reported).
 -   Whitespace and punctuation.
--   Editing and deletion in the middle of a word.
 
 Expected results must come from a verified reference or reviewed mapping
 table.
 
 ### 13.2 Vedic tests
 
-Cover:
+Cover, for each supported tradition:
 
--   Udātta.
--   Anudātta.
--   Svarita.
--   Independent svarita where applicable.
+-   Every accent in the documented inventory.
 -   Relevant Vedic Extensions.
 -   Combining-mark sequences.
 -   Multiple marks attached to a base character.
@@ -1015,9 +1442,10 @@ Cover:
 Cover:
 
 -   Devanagari to Kannada.
--   Devanagari to Tamil.
+-   Devanagari to Tamil (superscript convention).
 -   Kannada to Devanagari.
 -   Tamil to Devanagari.
+-   Mixed-script lines.
 -   Script switching after direct edits.
 -   Vedic mark preservation.
 -   Unsupported-character reporting.
@@ -1026,35 +1454,48 @@ Cover:
 Round-trip tests must explicitly identify expected lossy conversions. Do
 not assume every script conversion is reversible.
 
-### 13.4 Editing tests
+### 13.4 Segment model tests
+
+Unit tests for every row of the tables in §4.2 and §4.3, the re-linking
+rule, regeneration (line and all), script switching, and undo/redo in
+both panes. These run without a browser.
+
+### 13.5 Editing and backend tests
 
 Cover:
 
 -   Direct Unicode typing.
--   Pasting Unicode from websites.
--   Pasting from external applications.
+-   Pasting Unicode from websites and external applications.
 -   Manual symbol insertion.
--   Cursor movement around combining marks.
--   Deletion and selection around combining marks.
--   Undo and redo in both panes.
--   Source edits after output edits.
+-   Cursor movement, deletion and selection around combining marks.
 -   Regenerate confirmation.
--   Script switching after output edits.
--   Save and reopen.
--   Autosave recovery.
+-   Save and reopen (`.paramaakshara.json` and `.txt`).
+-   Save conflict when the file changed on disk.
+-   Invalid UTF-8, BOM and CRLF handling.
+-   Path traversal and symlink escape attempts.
+-   Requests without the session cookie, with a wrong `Host` or with a
+    foreign `Origin`.
+-   Second launch while running.
+-   Autosave recovery after the browser is killed.
 
-### 13.5 Performance targets
+### 13.6 Visual tests
 
-Initial targets:
+Playwright screenshot tests of the Vedic sample corpus in each output
+script, in Chromium, Firefox and WebKit on macOS, with the bundled
+fonts. Reference screenshots are reviewed by a person before they are
+accepted.
 
--   No perceptible lag during normal typing.
--   Incremental or affected-range conversion where practical.
--   Support documents of at least 50,000 Unicode characters.
+### 13.7 Performance targets
+
+Measured on a documented reference machine (for example an Apple M1 with
+current Chrome):
+
+-   Converting one edited line: under 1 ms.
+-   Keystroke to updated output on screen: under 50 ms with a
+    50,000-character document.
+-   Script switch of a 50,000-character document: under 200 ms.
+-   Opening a 50,000-character document: under 500 ms.
 -   No text loss during rapid typing or large paste operations.
--   Avoid unnecessary full-document re-rendering.
-
-Performance targets should be measured on a documented reference machine
-and browser.
 
 ------------------------------------------------------------------------
 
@@ -1069,9 +1510,12 @@ true.
 -   [ ] ITRANS can be typed in the input pane.
 -   [ ] The output updates in real time for supported sequences.
 -   [ ] The output pane is fully editable.
--   [ ] Manual output edits are not silently overwritten by input
-    changes.
--   [ ] A deliberate regenerate operation is available.
+-   [ ] A manual edit to one output line detaches only that line; other
+    lines keep following the source.
+-   [ ] Manual output edits are never silently overwritten or deleted by
+    source changes.
+-   [ ] Regenerate line and Regenerate all are available, with
+    confirmation.
 
 ### Clipboard
 
@@ -1092,27 +1536,37 @@ true.
 
 ### Vedic symbols
 
--   [ ] The initial verified symbol inventory is documented.
+-   [ ] The initial verified symbol inventory is documented per
+    tradition.
+-   [ ] `_`, `'` and `'''` produce anudātta, svarita and double svarita in ITRANS input.
 -   [ ] The symbol palette inserts supported characters.
 -   [ ] Unicode code points are preserved.
 -   [ ] Supported font/browser combinations render the test corpus
-    correctly.
+    correctly (§13.6).
 -   [ ] Missing glyphs or unsupported conversions are reported.
 
 ### Documents
 
+-   [ ] `.paramaakshara.json` save and open preserve source, output and segment
+    state.
 -   [ ] UTF-8 plain-text save and open work.
 -   [ ] Unsaved changes are indicated.
--   [ ] Undo and redo work.
--   [ ] A document can be recovered after an unexpected closure, subject
-    to the documented recovery mechanism.
+-   [ ] Undo and redo work in both panes as described in §4.7.
+-   [ ] A save over a file changed on disk is detected and not applied
+    silently.
+-   [ ] A document can be recovered after the browser or daemon is
+    killed.
 
 ### Security and distribution
 
--   [ ] The daemon binds to localhost by default.
--   [ ] File operations are restricted to configured directories.
--   [ ] The application works without a cloud service.
--   [ ] Third-party dependencies and licences are documented.
+-   [ ] The daemon listens on loopback only.
+-   [ ] API requests without a valid session, with a wrong `Host` or
+    with a foreign `Origin` are rejected.
+-   [ ] File operations are restricted to configured folders.
+-   [ ] A second launch reuses the running instance.
+-   [ ] The application works without a network connection.
+-   [ ] Third-party dependencies and licences are listed in
+    `THIRD_PARTY_NOTICES.md`.
 
 ------------------------------------------------------------------------
 
@@ -1122,26 +1576,27 @@ true.
 
 Deliver:
 
--   Go daemon serving the frontend.
--   Dual-pane interface.
--   Independent input and output state.
--   Editable Unicode output pane.
--   Clipboard support.
--   UTF-8 open/save.
--   Basic undo/redo.
+-   CodeMirror 6 spike (§8.1); confirm or switch.
+-   Go daemon: embedded assets, configuration, session security,
+    single instance, logging.
+-   Dual-pane interface with the segment model (§4), using a placeholder
+    converter that copies the source unchanged.
+-   Editable Unicode output pane, clipboard support.
+-   `.paramaakshara.json` and `.txt` open/save with revisions, backups and
+    recovery.
+-   Undo/redo in both panes.
 
-**Exit condition:** A useful two-pane Unicode editor exists even without
-transliteration.
+**Exit condition:** A useful Unicode editor exists, and the segment
+rules are proven with the placeholder converter.
 
 ### Phase 2 --- ITRANS
 
 Deliver:
 
--   Verified ITRANS mapping set.
--   Incremental parser.
+-   Verified ITRANS 5.3 mapping set and the Vedic accent input (§5.3).
+-   Evaluation of `@indic-transliteration/sanscript` against the corpus;
+    adopt it or implement the table-driven fallback.
 -   Live transliteration.
--   Incomplete-sequence handling.
--   Middle-of-text editing support.
 -   Automated test corpus.
 
 **Exit condition:** Common Sanskrit ITRANS input converts reliably to
@@ -1151,10 +1606,9 @@ Devanagari.
 
 Deliver:
 
--   Verified Vedic character catalogue.
+-   Verified Vedic character catalogue per tradition.
 -   Symbol palette.
--   Manual insertion.
--   Font/rendering test matrix.
+-   Font/rendering test matrix and screenshot tests.
 -   Vedic sample corpus.
 -   Configurable keyboard mapping framework.
 
@@ -1166,8 +1620,8 @@ reopened and rendered correctly in the documented environment.
 Deliver:
 
 -   Script conversion integration.
--   Script selector.
--   Document preservation.
+-   Script selector and script switching (§4.6).
+-   Tamil superscript convention.
 -   Loss/ambiguity reporting.
 -   Vedic mark preservation tests.
 
@@ -1178,7 +1632,8 @@ supported conversion scope without silent data loss.
 
 Deliver:
 
--   macOS packaging.
+-   macOS packaging (signed and notarized binary; launch item that opens
+    the browser).
 -   Linux support where practical.
 -   Installation and developer documentation.
 -   Contribution guidelines.
@@ -1190,13 +1645,116 @@ checkout using documented instructions.
 
 ------------------------------------------------------------------------
 
-## 16. Open-source project management
+## 16. Dependencies
 
-### 16.1 Repository name and description
+The aim is a small, auditable dependency set. Every addition must be
+justified in an ADR and listed in `THIRD_PARTY_NOTICES.md`. Licences
+marked "verify" must be confirmed from the project's current `LICENSE`
+file before the first release.
+
+### 16.1 What the end user needs
+
+-   One `paramaakshara` binary with the frontend embedded.
+-   A current Chrome, Firefox or Safari.
+-   Nothing else: no Node.js, no Python, no network access.
+
+### 16.2 Go (backend)
+
+**Go 1.24 or later** (required for `os.Root`).
+
+Standard library packages used:
+
+  Package                          Use
+  -------------------------------- ------------------------------------------
+  `net/http`                       Server; method-based routing in `ServeMux`
+  `embed`, `io/fs`                 Embedded frontend assets
+  `encoding/json`                  API, config and project files
+  `os` (`os.Root`), `path/filepath` Confined file access
+  `crypto/rand`, `crypto/subtle`   Session token generation and comparison
+  `crypto/sha256`                  Document revisions
+  `unicode/utf8`                   UTF-8 validation
+  `log`                            Logging (§9.8)
+  `flag`                           Command-line flags
+  `os/exec`                        Opening the browser (no shell)
+  `os/signal`, `context`           Graceful shutdown
+  `testing`, `net/http/httptest`   Tests
+
+Third-party:
+
+  Module                              Licence   Use
+  ----------------------------------- --------- ------------------------
+  `gopkg.in/natefinch/lumberjack.v2`  MIT       Log file rotation
+
+Not used: web frameworks, `logrus`/`zap`/`zerolog`, CGO.
+`golang.org/x/text` is not needed because the backend does not normalize
+text.
+
+### 16.3 Frontend runtime libraries
+
+  Package                              Licence        Use
+  ------------------------------------ -------------- ------------------------
+  `@codemirror/state`                  MIT            Editor state, segment
+                                                      tracking
+  `@codemirror/view`                   MIT            Editor view, gutters,
+                                                      decorations
+  `@codemirror/commands`               MIT            Default keymap, history
+                                                      (undo/redo)
+  `@codemirror/search`                 MIT            Find and replace
+  `@indic-transliteration/sanscript`   MIT (verify)   ITRANS and script
+                                                      conversion (provisional,
+                                                      §5.6)
+
+Not used: UI frameworks (React, Vue and similar), CDNs, analytics.
+
+### 16.4 Build, test and development tools
+
+Not shipped to users.
+
+  Tool                    Licence      Use
+  ----------------------- ------------ ----------------------------------
+  Node.js (current LTS)   MIT          Build only
+  TypeScript              Apache-2.0   Language
+  Vite                    MIT          Frontend build and dev server
+                                       (proxies `/api` to the daemon)
+  Vitest                  MIT          Unit tests (conversion, segment
+                                       model)
+  Playwright              Apache-2.0   End-to-end and screenshot tests in
+                                       Chromium, Firefox and WebKit
+  ESLint, Prettier        MIT          Lint and format
+  `gofmt`, `go vet`       BSD-3        Go format and checks
+  `staticcheck`           MIT          Go lint
+
+Exact versions are pinned in `go.mod`/`go.sum` and
+`package-lock.json`.
+
+### 16.5 Fonts
+
+  Font                                       Licence           Plan
+  ------------------------------------------ ----------------- -------------------------
+  Noto Serif / Sans Devanagari               OFL-1.1           Bundle
+  Noto Serif / Sans Kannada                  OFL-1.1           Bundle
+  Noto Serif / Sans Tamil                    OFL-1.1           Bundle
+  Fonts with stronger Vedic coverage         verify for each   Evaluate in Phase 3;
+  (for example Shobhika, Siddhanta)                            bundle only if the licence
+                                                               allows, otherwise support
+                                                               as user-installed
+
+### 16.6 Used only as references
+
+Aksharamukha (AGPL-3.0, verify), Lipika IME (GPL-3.0, verify) and
+Samsaadhanii may be consulted, or run offline to cross-check test
+expectations. No code or data from them is copied into the project
+unless its licence allows it.
+
+------------------------------------------------------------------------
+
+## 17. Open-source project management
+
+### 17.1 Repository name and description
 
 Suggested repository:
 
-`vedic-editor`
+`paramaakshara`
 
 Suggested GitHub description:
 
@@ -1204,9 +1762,10 @@ Suggested GitHub description:
 > transliteration, editable dual-pane workflow, Vedic symbols and
 > multi-script support.
 
-### 16.2 Licence
+### 17.2 Licence
 
-MIT or Apache-2.0 are reasonable candidates.
+MIT or Apache-2.0 are reasonable candidates. Both are compatible with
+the dependencies in §16.
 
 Before selecting a licence:
 
@@ -1216,13 +1775,14 @@ Before selecting a licence:
 -   Preserve attribution and licence notices.
 -   Do not copy proprietary Baraha implementation code or undocumented
     assets.
+-   Do not link AGPL or GPL code into the application.
 
-### 16.3 Contribution areas
+### 17.3 Contribution areas
 
 The project should make it straightforward to contribute:
 
 -   ITRANS mappings.
--   Vedic character definitions.
+-   Vedic character definitions per tradition.
 -   Verified Vedic test cases.
 -   Script conversion rules.
 -   Font/rendering test results.
@@ -1231,76 +1791,95 @@ The project should make it straightforward to contribute:
 -   Documentation and examples.
 
 Prefer data-driven mappings and independently testable conversion
-packages.
+modules.
 
-### 16.4 Continuous integration
+### 17.4 Continuous integration
 
-A future GitHub Actions workflow should:
+A GitHub Actions workflow should:
 
 -   Run Go tests.
--   Run frontend tests.
+-   Run frontend unit tests.
+-   Run Playwright tests, including screenshot tests on macOS.
 -   Run formatting and lint checks.
 -   Validate mapping data.
 -   Run Unicode preservation tests.
+-   Check that every dependency is listed in `THIRD_PARTY_NOTICES.md`.
 -   Build supported platform binaries.
 
 ------------------------------------------------------------------------
 
-## 17. Open technical decisions
+## 18. Technical decisions
 
-These decisions require investigation or user validation before they are
-finalised.
+Each decision is recorded as an ADR in `docs/adr/` when it is made or
+changed.
 
-1.  **Transliteration engine:** Select an existing library or implement
-    the required ITRANS subset.
-2.  **Execution location:** Decide whether transliteration and script
-    conversion run in TypeScript, Go or a combination.
-3.  **Editor component:** Evaluate CodeMirror 6 against a native
-    textarea for Indic combining-mark behaviour.
-4.  **Canonical script:** Decide whether the canonical document is
-    always Devanagari or whether it is script-neutral Unicode with
-    explicit script conversion.
-5.  **Tamil convention:** Define how Sanskrit phonemic distinctions are
-    represented in Tamil.
-6.  **Vedic inventory:** Identify the exact Vedic accents and signs
-    required, using verified source material.
-7.  **Vedic keystrokes:** Determine whether to reproduce Baraha
-    mappings, define a new mapping scheme or support both.
-8.  **Project file format:** Decide whether source text and metadata are
-    stored in a JSON project file or separate files.
-9.  **Font distribution:** Decide which fonts can be bundled and which
-    should be user-installed.
-10. **Legacy Baraha import:** Determine whether real sample files are
-    available and what encodings need to be supported.
-
-These decisions should be recorded in architecture decision records
-(ADRs) as the project develops.
+  \#   Decision                Status        Outcome
+  ---- ----------------------- ------------- ------------------------------------
+  1    Transliteration engine  Provisional   `@indic-transliteration/sanscript`,
+                                             confirmed by the Phase 2 corpus;
+                                             fallback is a project-owned
+                                             table-driven converter (§5.6).
+  2    Where conversion runs   Decided       Frontend (TypeScript). The daemon
+                                             does no conversion.
+  3    Editor component        Provisional   CodeMirror 6, confirmed by the
+                                             Phase 1 spike (§8.1).
+  4    Canonical script        Decided       None. Stored text is shown text;
+                                             script switching rewrites the
+                                             output explicitly (§2.4, §4.6).
+  5    Tamil convention        Provisional   Superscript numerals (§7.3).
+  6    Vedic inventory         Open          Per tradition; the traditions to
+                                             support first must be confirmed
+                                             with users.
+  7    Vedic keystrokes        Decided       `_` anudātta, `'` svarita, `'''`
+                               for v1        double svarita (§5.3). Further
+                                             mappings are data-driven. Baraha
+                                             compatibility is open.
+  8    Project file format     Decided       JSON `.paramaakshara.json` (§10.3).
+  9    Font distribution       Provisional   Bundle Noto (OFL); others
+                                             user-installed unless licences
+                                             allow bundling (§16.5).
+  10   Legacy Baraha import    Open          After v1; needs real sample files.
+  11   Application shell       Decided       Browser + Go daemon for v1.
+                               for v1        Revisit a webview shell (for example
+                                             Wails) if file-dialog or
+                                             shortcut limits hurt users.
+  12   Editing model           Decided       Line segments with per-line
+                                             detaching (§4). An input-method
+                                             model (ITRANS typed into a
+                                             composition box and inserted at the
+                                             output cursor) was considered and
+                                             rejected because it does not keep
+                                             the source.
+  13   HTTP port               Decided       Fixed default `7531`, configurable;
+                                             no silent fallback (§9.6, §9.7).
 
 ------------------------------------------------------------------------
 
-## 18. Recommended implementation order
+## 19. Recommended implementation order
 
 Do not start by attempting to reproduce all of Baraha's transliteration
 behaviour.
 
 The recommended sequence is:
 
-1.  Build the dual-pane editor.
-2.  Make the output pane a reliable Unicode editor.
-3.  Verify copy/paste of Vedic Unicode from external sources.
-4.  Implement save/open and undo/redo.
-5.  Add ITRANS conversion.
-6.  Add the Vedic symbol catalogue and insertion palette.
-7.  Add Kannada and Tamil conversion.
-8.  Add configurable Vedic keyboard mappings.
-9.  Improve compatibility and add more scripts.
+1.  Build the daemon, session security and configuration.
+2.  Build the dual-pane editor with the segment model and a placeholder
+    converter.
+3.  Make the output pane a reliable Unicode editor.
+4.  Verify copy/paste of Vedic Unicode from external sources.
+5.  Implement save/open, recovery and undo/redo.
+6.  Add ITRANS conversion.
+7.  Add the Vedic symbol catalogue and insertion palette.
+8.  Add Kannada and Tamil conversion.
+9.  Add configurable Vedic keyboard mappings.
+10. Improve compatibility and add more scripts.
 
 This order produces useful software early and avoids making the editor
 dependent on an unfinished transliteration engine.
 
 ------------------------------------------------------------------------
 
-## 19. Reference resources
+## 20. Reference resources
 
 The following are starting points for technical investigation. Their
 suitability, current maintenance status and licensing must be verified
@@ -1318,6 +1897,8 @@ before integration.
 
 ### Transliteration and Indic tools
 
+-   Sanscript (indic-transliteration):
+    https://github.com/indic-transliteration/sanscript.js
 -   Aksharamukha: https://github.com/virtualvinodh/aksharamukha
 -   Lipika IME: https://github.com/ratreya/lipika-ime
 -   Samsaadhanii: https://sanskrit.uohyd.ac.in/manual/transliterate/
@@ -1329,24 +1910,30 @@ before integration.
 -   CodeMirror: https://codemirror.net/
 -   Go: https://go.dev/
 -   Go HTTP package: https://pkg.go.dev/net/http
+-   Go `os.Root`: https://pkg.go.dev/os#Root
+-   lumberjack: https://github.com/natefinch/lumberjack
+-   Vite: https://vite.dev/
+-   Playwright: https://playwright.dev/
 
 ------------------------------------------------------------------------
 
-## 20. Summary
+## 21. Summary
 
-Vedic Editor is fundamentally a Unicode document editor with an
+Paramaakshara is fundamentally a Unicode document editor with an
 ITRANS-assisted input pane.
 
 The most important product decision is that the output pane is an
 independent, fully editable document. Transliteration is an input
-convenience, not the source of truth.
+convenience, not the source of truth. Manual corrections detach only the
+lines they touch, so the user can keep typing ITRANS while correcting
+the output.
 
 The project should prioritise:
 
 1.  Correct Unicode preservation.
 2.  Reliable editing and clipboard behaviour.
 3.  Deterministic ITRANS conversion.
-4.  Correct Vedic accent representation and rendering.
+4.  Correct Vedic accent representation and rendering, per tradition.
 5.  Script conversion with explicit handling of limitations.
 
 A small, correct editor is more valuable than a large feature set that
