@@ -1394,9 +1394,24 @@ stop the daemon with a message naming the key.
                                                                 as linked segments ("Import
                                                                 as ITRANS").
 
-Future possibilities: Markdown, HTML, DOCX and PDF export; Baraha
+Future possibilities: Markdown, HTML and DOCX export; Baraha
 legacy-format import; other legacy Sanskrit encodings, subject to
 licensing and technical feasibility.
+
+### 10.1a PDF export
+
+**Export PDF…** prints the output text on its own through the browser's
+print engine, where the user chooses Save as PDF:
+
+-   Only the output lines are printed, with an optional title; editor
+    panes, gutters and markers are not. Empty lines are kept, and a line
+    is not split across pages.
+-   Page size (A4 or Letter) and text size are chosen in a dialog and
+    remembered per browser.
+-   The browser shapes the text exactly as on screen and embeds the
+    bundled fonts, so conjuncts and Vedic accents are correct in the PDF.
+    JavaScript PDF libraries are not used because they cannot shape
+    Devanagari, Kannada or Tamil correctly.
 
 ### 10.2 Plain-text export
 

@@ -448,6 +448,10 @@ export class Files {
     }
   }
 
+  documentName(): string {
+    return this.current.name;
+  }
+
   /** Downloads the Unicode output as a plain-text file. */
   exportText(): void {
     const blob = new Blob([outputText(this.doc.segments)], {

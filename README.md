@@ -13,6 +13,8 @@ ITRANS.
     back. Undo works per pane.
 -   **Devanagari, Kannada, Tamil:** switch the output script at any time;
     anything a script cannot write exactly is reported, never dropped.
+-   **Export** the output as plain text or **PDF** (through the browser's
+    Save as PDF, with the fonts embedded).
 -   **Clean up text** for Baraha output (accent order, double svarita,
     short e/o, colon visarga) and a **Vedic symbol palette**.
 -   **Your files stay on your computer.** The editor runs in your browser

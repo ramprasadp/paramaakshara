@@ -14,6 +14,7 @@ import { barahaDialog } from "./ui/baraha";
 import { cleanupCommand } from "./ui/cleanup";
 import { alertBox, confirmBox, el, show } from "./ui/dialog";
 import { Palette } from "./ui/palette";
+import { exportPdf } from "./ui/pdf";
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   return document.getElementById(id) as T;
@@ -206,6 +207,10 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     b.addEventListener("click", () => doc.insertInOutput(b.dataset.insert!));
   }
   byId("file-export").addEventListener("click", () => files?.exportText());
+  byId("export-pdf").addEventListener("click", () => {
+    const lines = doc.output.state.doc.toString().split("\n");
+    void exportPdf(lines, files?.documentName() ?? "Untitled");
+  });
   byId("cleanup").addEventListener("click", () => void cleanupCommand(doc));
   byId("baraha").addEventListener(
     "click",

@@ -522,3 +522,46 @@ dialog:has(.baraha-input) {
   text-align: center;
   color: var(--muted);
 }
+
+/* Export PDF (src/ui/pdf.ts): only the print view is printed. */
+#print-view {
+  display: none;
+}
+
+@media print {
+  body > *:not(#print-view) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    height: auto;
+    background: #fff;
+    color: #000;
+  }
+
+  body {
+    display: block;
+  }
+
+  #print-view {
+    display: block;
+    font-family: var(--indic-font);
+    line-height: 1.9;
+    color: #000;
+  }
+
+  #print-view h1 {
+    font-size: 1.3em;
+    font-weight: normal;
+    text-align: center;
+    margin: 0 0 1em;
+  }
+
+  #print-view p {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    break-inside: avoid;
+  }
+}

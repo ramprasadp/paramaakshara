@@ -2,6 +2,12 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+-   Export PDF: prints the output on its own (title, A4 or Letter, text
+    size) through the browser's Save as PDF, with the bundled fonts
+    embedded.
+
 ## 0.1.0 — 2026-11-09
 
 ### Editor

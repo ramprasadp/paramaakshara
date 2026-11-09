@@ -42,6 +42,13 @@
         >
           Export .txt
         </button>
+        <button
+          id="export-pdf"
+          type="button"
+          title="Print the Unicode output, or save it as a PDF"
+        >
+          Export PDF…
+        </button>
       </span>
       <span id="docname" class="docname"></span>
       <span class="spacer"></span>
@@ -132,6 +139,8 @@
     </footer>
     <div id="banner" class="banner" hidden></div>
     <dialog id="dialog"></dialog>
+    <style id="print-page"></style>
+    <div id="print-view" aria-hidden="true"></div>
     <script type="module" src="/src/app.ts"></script>
   </body>
 </html>
