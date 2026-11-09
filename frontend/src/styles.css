@@ -249,6 +249,11 @@ button.icon .glyph {
   background: var(--selection);
 }
 
+/* The current line(s) and their counterparts in the other pane. */
+.editor .cm-line.paired-line {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .seg-gutter {
   min-width: 1.8em;
   text-align: center;

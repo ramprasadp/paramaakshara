@@ -197,3 +197,64 @@ test("the page title is paramaakshara", async ({ page }) => {
   await typeSource(page, "aa");
   await expect(page).toHaveTitle("paramaakshara");
 });
+
+/** Line numbers (1-based) highlighted as the current segment in a pane. */
+async function paired(page: Page, pane: "source" | "output") {
+  return page.evaluate((pane) => {
+    const d = window.paramaakshara.doc;
+    const view = pane === "source" ? d.source : d.output;
+    return [...view.dom.querySelectorAll(".cm-line.paired-line")].map(
+      (el) => view.state.doc.lineAt(view.posAtDOM(el)).number,
+    );
+  }, pane);
+}
+
+test("the current line is highlighted in both panes until focus leaves", async ({
+  page,
+}) => {
+  await typeSource(page, "ka\nkha\nga");
+  await select(page, "source", 4); // line 2
+  await expect.poll(() => paired(page, "output")).toEqual([2]);
+  expect(await paired(page, "source")).toEqual([2]);
+  // A selection over several lines highlights all of them.
+  await select(page, "source", 0, 4);
+  await expect.poll(() => paired(page, "output")).toEqual([1, 2]);
+  // From the output pane too.
+  await select(page, "output", 5); // line 3
+  await expect.poll(() => paired(page, "source")).toEqual([3]);
+  // Clicking outside both panes removes it.
+  await page.click(".status");
+  await expect.poll(() => paired(page, "output")).toEqual([]);
+  expect(await paired(page, "source")).toEqual([]);
+});
+
+test("the other pane scrolls to show the highlighted line", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    const d = window.paramaakshara.doc;
+    d.insertInSource(Array.from({ length: 120 }, () => "agnim").join("\n"));
+  });
+  // Bring both panes to the top, then put the cursor on line 100.
+  await page.evaluate(() => {
+    const d = window.paramaakshara.doc;
+    d.output.scrollDOM.scrollTop = 0;
+    d.source.focus();
+    d.source.dispatch({
+      selection: { anchor: d.source.state.doc.line(100).from },
+      scrollIntoView: true,
+    });
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const out = window.paramaakshara.doc.output;
+        const line = out.dom.querySelector(".cm-line.paired-line");
+        if (!line) return false;
+        const box = line.getBoundingClientRect();
+        const view = out.scrollDOM.getBoundingClientRect();
+        return box.top >= view.top && box.bottom <= view.bottom;
+      }),
+    )
+    .toBe(true);
+});

@@ -21,12 +21,14 @@ import {
   type TransactionSpec,
 } from "@codemirror/state";
 import {
+  Decoration,
   EditorView,
   GutterMarker,
   drawSelection,
   gutter,
   keymap,
   lineNumbers,
+  type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
 import {
@@ -76,6 +78,19 @@ const markersField = StateField.define<RangeSet<GutterMarker>>({
     return value.map(tr.changes);
   },
 });
+
+// The lines of the segments at the cursor or selection, in both panes,
+// while either pane has focus (§4.4).
+const setPaired = StateEffect.define<DecorationSet>();
+const pairedField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(value, tr) {
+    for (const e of tr.effects) if (e.is(setPaired)) return e.value;
+    return value.map(tr.changes);
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+const pairedLine = Decoration.line({ class: "paired-line" });
 
 class Marker extends GutterMarker {
   constructor(
@@ -158,6 +173,7 @@ export class EditorDocument {
   script: Script;
   private lastFocused: Pane = "source";
   private refreshQueued = false;
+  private pairQueued = false;
 
   constructor(opts: Options) {
     this.ctx = opts.context;
@@ -247,6 +263,7 @@ export class EditorDocument {
     return [
       lineNumbers(),
       markersField,
+      pairedField,
       gutter({
         class: "seg-gutter",
         markers: (v) => v.state.field(markersField),
@@ -347,6 +364,72 @@ export class EditorDocument {
       }
     }
     if (changed) this.queueRefresh();
+    if (u.selectionSet || u.focusChanged || u.docChanged) this.queuePair();
+  }
+
+  private queuePair(): void {
+    if (this.pairQueued) return;
+    this.pairQueued = true;
+    queueMicrotask(() => {
+      this.pairQueued = false;
+      this.pair();
+    });
+  }
+
+  /**
+   * Highlights the lines of the segments touched by the focused pane's
+   * selection, in both panes, scrolling the other pane to show them;
+   * clears the highlight when neither pane has focus.
+   */
+  private pair(): void {
+    const focused = this.source.hasFocus
+      ? this.source
+      : this.output.hasFocus
+        ? this.output
+        : null;
+    // The segment of each source line; output line i is segment i.
+    const sourceSeg: number[] = [];
+    this.segments.forEach((s, i) => {
+      const n = s.source === null ? 0 : s.source.split("\n").length;
+      for (let k = 0; k < n; k++) sourceSeg.push(i);
+    });
+    const segs = new Set<number>();
+    if (focused) {
+      const { doc, selection } = focused.state;
+      const first = doc.lineAt(selection.main.from).number - 1;
+      const last = doc.lineAt(selection.main.to).number - 1;
+      for (let line = first; line <= last; line++) {
+        const seg = focused === this.source ? sourceSeg[line] : line;
+        if (seg !== undefined) segs.add(seg);
+      }
+    }
+    const lines = {
+      source: sourceSeg.flatMap((seg, line) => (segs.has(seg) ? [line] : [])),
+      output: [...segs].sort((a, b) => a - b),
+    };
+    for (const pane of ["source", "output"] as const) {
+      const view = this.view(pane);
+      const doc = view.state.doc;
+      const deco = Decoration.set(
+        lines[pane]
+          .filter((l) => l < doc.lines)
+          .map((l) => pairedLine.range(doc.line(l + 1).from)),
+      );
+      const old = view.state.field(pairedField);
+      if (old.size === 0 && deco.size === 0) continue;
+      // The panes scroll separately; bring the matching line into view.
+      const first = lines[pane][0];
+      const scroll =
+        focused && view !== focused && first !== undefined && first < doc.lines
+          ? [
+              EditorView.scrollIntoView(doc.line(first + 1).from, {
+                y: "nearest",
+                yMargin: 48,
+              }),
+            ]
+          : [];
+      view.dispatch({ effects: [setPaired.of(deco), ...scroll] });
+    }
   }
 
   // Panes cannot be updated while one of them is updating, so mirroring

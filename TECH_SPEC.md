@@ -381,6 +381,11 @@ that no manual output is lost.
   Conversion error   `⚠`             The source contains sequences that
                                      could not be converted.
 
+While the cursor or a selection is in either pane, the lines of the
+segments it touches are highlighted in both panes, so the matching line
+in the other pane is easy to find. The highlight is removed when
+neither pane has focus.
+
 Markers appear in both panes where the segment is visible. The status
 bar shows counts of detached, stale and error segments. Hovering a stale
 marker shows the current transliteration of the source next to the
