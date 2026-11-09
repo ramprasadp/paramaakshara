@@ -138,6 +138,11 @@ export interface Options {
    * the segments change. context.convert must then write that script.
    */
   onScript?: (script: Script) => void;
+  /**
+   * Called with text pasted into the input pane; returning true means the
+   * caller handles it (e.g. offers to convert Baraha text).
+   */
+  onSourcePaste?: (text: string) => boolean;
 }
 
 export class EditorDocument {
@@ -149,6 +154,7 @@ export class EditorDocument {
   private readonly confirm: (message: string) => boolean;
   private readonly issues: (source: string) => string[];
   private readonly onScript: (script: Script) => void;
+  private readonly onSourcePaste: (text: string) => boolean;
   script: Script;
   private lastFocused: Pane = "source";
   private refreshQueued = false;
@@ -160,6 +166,7 @@ export class EditorDocument {
     this.confirm = opts.confirm ?? (() => true);
     this.issues = opts.issues ?? (() => []);
     this.onScript = opts.onScript ?? (() => {});
+    this.onSourcePaste = opts.onSourcePaste ?? (() => false);
     this.script = opts.script ?? "devanagari";
     this.source = new EditorView({
       parent: opts.sourceParent,
@@ -265,6 +272,13 @@ export class EditorDocument {
       EditorView.domEventHandlers({
         focus: () => {
           this.lastFocused = pane;
+        },
+        paste: (event) => {
+          if (pane !== "source") return false;
+          const text = event.clipboardData?.getData("text/plain");
+          if (!text || !this.onSourcePaste(text)) return false;
+          event.preventDefault();
+          return true;
         },
       }),
     ];
@@ -489,6 +503,15 @@ export class EditorDocument {
       ];
     });
     if (changes.length > 0) this.output.dispatch({ changes, userEvent });
+  }
+
+  /** Inserts text at the input cursor as a paste (one undo step). */
+  insertInSource(text: string): void {
+    this.source.dispatch(this.source.state.replaceSelection(text), {
+      userEvent: "input.paste",
+      scrollIntoView: true,
+    });
+    this.source.focus();
   }
 
   /** Inserts text at the output cursor, e.g. from the symbol palette. */

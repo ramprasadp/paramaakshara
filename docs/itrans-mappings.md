@@ -2,7 +2,7 @@
 
 The normative input table for Paramaakshara (TECH_SPEC §5). The code is
 `frontend/src/conversion/itrans.ts`; its tables must match this file.
-Converter version: `itrans-5.3+pak/2` (stored in project files).
+Converter version: `itrans-5.3+pak/3` (stored in project files).
 
 Reference convention: **ITRANS 5.3**. Input is read by longest match, one
 line at a time.
@@ -56,6 +56,8 @@ A consonant not followed by a vowel gets a virama (`agnim` → अग्नि�
   `{}`          (nothing)           separates tokens: `k{}h` → क्ह, `ka{}i` → कइ
   `OM`          ॐ
   `|`, `||`     । ॥
+  `(gm)`        ꣳ U+A8F3            Taittirīya anusvara before sibilants
+  `(gg)`        ꣴ U+A8F4            same, doubled; an accent may follow
   `0`–`9`       ०–९                 or ASCII digits (`editor.digits`)
 
 Spaces, punctuation and characters that are not ASCII (for example
@@ -96,6 +98,20 @@ Not accepted: Baraha `G` (घ), because ITRANS `G` is ग़; Baraha `S`, `B`,
 `c`, `E`, `O` (use `sh`, `bh`, `ch`, `e`, `o`); and Baraha's accent keys
 `q`, `#`, `$` (the project uses `_`, `'`, `'''`).
 
+## Pasting Baraha text
+
+Text typed in Baraha (with `q`, `#`, `$` accents and Baraha letters) is
+rewritten in ITRANS before it is inserted (`frontend/src/conversion/
+baraha.ts`, same legend as above plus `q`→`_`, `#`→`'`, `$`→`'''`,
+`:`→`H`, `&`→`.a`, `S`→`sh`, `c`→`ch`, `C`→`Ch`, `B`→`bh`, `G`→`gh`,
+`E`→`e`, `O`→`o`):
+
+-   **Baraha…** in the toolbar opens a dialog with a preview.
+-   Pasting text that looks like Baraha (it contains `#` or `$`, or `q`
+    after a vowel) into the ITRANS pane opens the same dialog, because
+    pasting it unchanged would convert wrongly (`q` is क़ in ITRANS).
+-   **Import…** offers "Baraha source" for whole files.
+
 ## Reported problems
 
 The converter never guesses. These are left as typed and reported, which
@@ -120,6 +136,8 @@ the editor shows as ⚠ (TECH_SPEC §4.4):
   yet.
   `Ru`, `RU`, `~g`, `~j`, `~M` are        Baraha spellings (above).
   accepted.
+  `(gm)`, `(gg)` give ꣳ, ꣴ.               Taittirīya notation as typed in
+                                          Baraha.
 
 ## Not yet supported
 

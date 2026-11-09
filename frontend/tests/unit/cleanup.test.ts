@@ -33,6 +33,12 @@ describe("cleanup (§6.8)", () => {
     expect(r.counts.visarga).toBe(3);
   });
 
+  it("converts the Taittirīya (gm)/(gg) anusvara to U+A8F3/U+A8F4", () => {
+    const r = cleanup("सरसा(ग्म्) भू॑यास॒(ग्ग्)॒", ["taittiriya-anusvara"]);
+    expect(r.text).toBe("सरसा\uA8F3 भू॑यास॒\uA8F4॒");
+    expect(r.counts["taittiriya-anusvara"]).toBe(2);
+  });
+
   it("changes nothing in clean text", () => {
     const clean = "स॒हस्र॑शीर्षा॒ पुरु॑षः भूमिं॑ स्वाहा᳚";
     const r = cleanup(clean);
@@ -48,12 +54,14 @@ describe("cleanup (§6.8)", () => {
       "double-svarita": 0,
       "sanskrit-e-o": 0,
       "accent-order": 20,
+      "taittiriya-anusvara": 0,
     });
     expect(cleanup(sample("viraja-homa.unicode.txt")).counts).toEqual({
       visarga: 0,
       "double-svarita": 68,
       "sanskrit-e-o": 123,
       "accent-order": 43,
+      "taittiriya-anusvara": 22,
     });
   });
 });

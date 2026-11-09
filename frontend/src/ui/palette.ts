@@ -39,8 +39,6 @@ export interface PaletteOptions {
   doc: EditorDocument;
   tradition: () => string;
   setTradition: (id: string) => void;
-  /** True when the bundled font is in use, so coverage is known. */
-  bundledFont: () => boolean;
 }
 
 export class Palette {
@@ -71,7 +69,7 @@ export class Palette {
   }
 
   async show(): Promise<void> {
-    const covered = this.opts.bundledFont() ? await fontCoverage() : null;
+    const covered = await fontCoverage();
     const search = el("input", {
       type: "search",
       placeholder: "Search by name or U+code",
@@ -201,15 +199,6 @@ export class Palette {
         close,
       ),
       body,
-      ...(covered === null && !this.opts.bundledFont()
-        ? [
-            el(
-              "p",
-              { className: "muted" },
-              "Glyph coverage is checked only for the bundled Noto font.",
-            ),
-          ]
-        : []),
     );
     render();
     this.root.hidden = false;

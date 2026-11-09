@@ -14,6 +14,7 @@ const LABELS: Record<Fix, string> = {
   "double-svarita": "Baraha double svarita U+0953 → U+1CDA",
   "sanskrit-e-o": "Short e/o (ॆ ॊ ऎ ऒ) → Sanskrit e/o (े ो ए ओ)",
   visarga: "Colon after Devanagari or Kannada → visarga (ः ಃ)",
+  "taittiriya-anusvara": "Taittirīya (ग्म्) (ग्ग्) → ꣳ ꣴ",
 };
 
 const PREVIEW_LINES = 5;

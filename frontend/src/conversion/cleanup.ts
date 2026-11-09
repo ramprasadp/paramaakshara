@@ -5,13 +5,18 @@
 // automatically; the editor applies a fix only when the user asks.
 
 export type Fix =
-  "visarga" | "double-svarita" | "sanskrit-e-o" | "accent-order";
+  | "visarga"
+  | "double-svarita"
+  | "sanskrit-e-o"
+  | "accent-order"
+  | "taittiriya-anusvara";
 
 export const ALL_FIXES: readonly Fix[] = [
   "visarga",
   "double-svarita",
   "sanskrit-e-o",
   "accent-order",
+  "taittiriya-anusvara",
 ];
 
 const ACCENTS = "\u0951\u0952\u1CDA\u0953";
@@ -54,6 +59,7 @@ export function cleanup(
     "double-svarita": 0,
     "sanskrit-e-o": 0,
     "accent-order": 0,
+    "taittiriya-anusvara": 0,
   };
   const on = new Set(fixes);
   let out = text;
@@ -82,6 +88,16 @@ export function cleanup(
       }
     }
     out = chars.join("");
+  }
+  if (on.has("taittiriya-anusvara")) {
+    // Baraha's (ग्म्)/(ग्ग्) → U+A8F3/U+A8F4 (ITRANS (gm)/(gg)).
+    out = out.replace(
+      /\(\u0917\u094D(\u092E|\u0917)\u094D\)/g,
+      (_m, second: string) => {
+        counts["taittiriya-anusvara"]++;
+        return second === "\u092E" ? "\uA8F3" : "\uA8F4";
+      },
+    );
   }
   if (on.has("accent-order")) {
     // Accent(s) followed by anusvara, visarga or chandrabindu: put the

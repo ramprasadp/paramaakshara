@@ -37,7 +37,8 @@ point in the Unicode text on every line of both samples.
   `G`           घ                                 `gh`
   `e`, `o`      े ो (U+0947, U+094B)               `e`, `o`
   `E`, `O`      ॆ ॊ (U+0946, U+094A; see notes)    `e`, `o`
-  `(gm)`        `(ग्म्)` as plain text             not yet defined
+  `(gm)`        `(ग्म्)` as plain text             `(gm)` (ꣳ U+A8F3)
+  `(gg)`        `(ग्ग्)` as plain text             `(gg)` (ꣴ U+A8F4)
 
 ## purusha-sukta
 
@@ -82,11 +83,10 @@ point in the Unicode text on every line of both samples.
     in viraja-homa. This order renders with a dotted circle in every font
     tested, so Paramaakshara writes the sign first (ADR 0002). Kept as
     produced to test the Clean up text command.
--   **`(gm)` / `(gg)` (viraja-homa).** The Taittirīya anusvara is written
-    as plain text in parentheses. Where an accent follows (`भू॑यास॒(ग्ग्)॒`),
-    the combining mark sits on `)` and usually renders on a dotted
-    circle. Useful for rendering tests; a proper encoding is not yet
-    decided.
+-   **`(gm)` / `(gg)` (viraja-homa, 7 and 15 times).** Baraha writes the
+    Taittirīya anusvara as plain text in parentheses; where an accent
+    follows (`भू॑यास॒(ग्ग्)॒`) it sits on `)`. Paramaakshara encodes it as
+    ꣳ / ꣴ (U+A8F3 / U+A8F4), and Clean up text converts Baraha's form.
 -   The Baraha source of viraja-homa contains a few no-break spaces
     (U+00A0).
 -   Neither text contains ZWJ/ZWNJ. Verse numbers use Devanagari digits.

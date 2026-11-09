@@ -175,6 +175,15 @@ export function fromDevanagari(text: string, to: Script): ScriptResult {
   for (let i = 0; i < chars.length; i++) {
     const ch = chars[i]!;
     const c = ch.codePointAt(0)!;
+    if (c >= 0xa8e0 && c <= 0xa8ff) {
+      // Devanagari Extended (e.g. Taittirīya ꣳ ꣴ): no Kannada/Tamil form.
+      out += ch;
+      issues.push({
+        text: ch,
+        message: `${ch} has no ${to === "kannada" ? "Kannada" : "Tamil"} equivalent; kept`,
+      });
+      continue;
+    }
     if (scriptOf(ch) !== "devanagari") {
       out += ch;
       continue;

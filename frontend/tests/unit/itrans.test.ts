@@ -63,7 +63,7 @@ describe("vowels and consonants (§5.2)", () => {
   });
 
   it("passes through spaces, punctuation and existing Unicode", () => {
-    expect(t("rAma, sItA; (gm) - ?")).toBe("राम, सीता; (ग्म्) - ?");
+    expect(t("rAma, sItA; (ka) - ?")).toBe("राम, सीता; (क) - ?");
     expect(t("deva देव")).toBe("देव देव");
   });
 });
@@ -105,6 +105,18 @@ describe("Vedic accents (§5.3)", () => {
       expect(r.issues[0]!.message).toMatch(/must follow a vowel/);
       expect(r.text).toContain("'");
     }
+  });
+});
+
+describe("Taittirīya anusvara (gm)/(gg)", () => {
+  it("writes U+A8F3 and U+A8F4, and an accent may follow", () => {
+    const r = transliterate("sarasA(gm) bhU'yAsa_(gg)_ svAhA'''");
+    expect(r.text).toBe("सरसा\uA8F3 भू॑यास॒\uA8F4॒ स्वाहा᳚");
+    expect(r.issues).toEqual([]);
+  });
+
+  it("leaves other parenthesised text alone", () => {
+    expect(t("(gam) (g)")).toBe("(गम्) (ग्)");
   });
 });
 

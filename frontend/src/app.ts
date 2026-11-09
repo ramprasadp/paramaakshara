@@ -9,6 +9,8 @@ import { Files } from "./files";
 import { fetchHealth } from "./health";
 import type { Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
+import { looksLikeBaraha } from "./conversion/baraha";
+import { barahaDialog } from "./ui/baraha";
 import { cleanupCommand } from "./ui/cleanup";
 import { el, show } from "./ui/dialog";
 import { Palette } from "./ui/palette";
@@ -137,6 +139,13 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
       files?.setOutputScript(s);
     },
     issues: (s) => convert(s, script).issues,
+    // Baraha text pasted into the ITRANS pane would convert wrongly
+    // (q is a letter in ITRANS), so offer to rewrite it first.
+    onSourcePaste: (text) => {
+      if (!looksLikeBaraha(text)) return false;
+      void barahaDialog(doc, (line) => convert(line, script), text);
+      return true;
+    },
     onChange: (c) => {
       showCounts(c);
       files?.changed();
@@ -166,33 +175,10 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
   }
   byId("file-export").addEventListener("click", () => files?.exportText());
   byId("cleanup").addEventListener("click", () => void cleanupCommand(doc));
-
-  // Devanagari font: a per-browser convenience, so kept in localStorage.
-  const fontSelect = byId<HTMLSelectElement>("font-select");
-  const applyFont = () => {
-    const f = fontSelect.value;
-    const root = document.documentElement.style;
-    if (f === "bundled") root.removeProperty("--indic-font");
-    else
-      root.setProperty(
-        "--indic-font",
-        `"${f}", "Paramaakshara Noto Serif Devanagari", var(--scripts-font), serif`,
-      );
-    try {
-      localStorage.setItem("paramaakshara-font", f);
-    } catch {
-      // Storage unavailable: the choice lasts for this page only.
-    }
-  };
-  try {
-    const saved = localStorage.getItem("paramaakshara-font");
-    if (saved && [...fontSelect.options].some((o) => o.value === saved))
-      fontSelect.value = saved;
-  } catch {
-    // Use the default font.
-  }
-  fontSelect.addEventListener("change", applyFont);
-  applyFont();
+  byId("baraha").addEventListener(
+    "click",
+    () => void barahaDialog(doc, (line) => convert(line, script)),
+  );
 
   let tradition = config?.editor.vedic_tradition ?? "rigveda";
   const palette = new Palette(byId("palette"), {
@@ -202,7 +188,6 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
       tradition = id;
       files?.setTradition(id);
     },
-    bundledFont: () => fontSelect.value === "bundled",
   });
   byId("palette-toggle").addEventListener("click", () => palette.toggle());
   doc.source.focus();

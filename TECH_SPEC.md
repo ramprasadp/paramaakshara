@@ -751,9 +751,11 @@ The palette must:
     the font's character map; for other fonts it is not known and the
     palette says so.
 
-The Devanagari font is chosen in the toolbar. The choice is a per-browser
-convenience kept in browser storage; `editor.fonts` in the config is not
-yet used.
+Version 1 always uses the bundled Noto Serif fonts. A font menu offering
+the macOS Devanagari fonts was removed: none of them has U+1CDA, and
+Firefox then draws the double svarita on a dotted circle because it does
+not combine a mark from a fallback font with its base letter.
+`editor.fonts` in the config is not yet used.
 
 Example layout:
 
@@ -847,6 +849,8 @@ not converted, searched or shaped as a visarga.
   Sanskrit e/o         Devanagari short e/o:          Long e/o:
                        ॆ U+0946, ॊ U+094A,             े U+0947, ो U+094B,
                        ऎ U+090E, ऒ U+0912              ए U+090F, ओ U+0913
+  Taittirīya anusvara  (ग्म्), (ग्ग्) as plain text       ꣳ U+A8F3, ꣴ U+A8F4
+                       (Baraha)                       (ITRANS `(gm)`, `(gg)`)
   Accent order         Accent followed by anusvara,   The sign, then the accent
                        visarga or chandrabindu        (§5.3)
                        (भूमि॑ं)                         (भूमिं॑)
@@ -1016,7 +1020,9 @@ No font should be assumed to cover every Vedic character correctly;
 fonts with better Vedic coverage must be evaluated and, if their licence
 does not allow bundling, supported as user-installed fonts.
 
-The user can choose a font per script (§9.6, `editor.fonts`).
+Choosing a font per script (§9.6, `editor.fonts`) is planned; a font
+is offered only if it renders the Vedic accents in all supported
+browsers (§6.4).
 
 ### 8.4 Rendering tests
 

@@ -10,16 +10,14 @@
 // Known differences, by design:
 // - Baraha drops repeated and trailing spaces; spaces are compared
 //   collapsed.
-// - An accent after ")" in the Taittirīya "(gg)" notation does not follow
-//   a vowel, so the converter reports it and leaves "_" as typed
-//   (§5.3); Baraha attached the mark to ")". How to encode this is open
-//   (dev plan, M7).
+// - Baraha's "(ग्ग्)" is converted to ꣴ by Clean up text, matching our
+//   ITRANS "(gg)".
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { cleanup } from "../../src/conversion/cleanup";
 import { transliterate } from "../../src/conversion/itrans";
-import { barahaToItrans } from "../support/baraha";
+import { barahaToItrans } from "../../src/conversion/baraha";
 
 const read = (name: string) =>
   readFileSync(
@@ -30,8 +28,6 @@ const read = (name: string) =>
     .split("\n");
 
 const spaces = (s: string) => s.replace(/[  ]+/g, " ").trim();
-
-const ACCENT_AFTER_PAREN = /\)([॒॑᳚])/g;
 
 describe.each(["purusha-sukta", "viraja-homa"])("Baraha sample %s", (name) => {
   const source = read(`${name}.baraha.txt`);
@@ -46,17 +42,8 @@ describe.each(["purusha-sukta", "viraja-homa"])("Baraha sample %s", (name) => {
     (n, line) => {
       const itrans = barahaToItrans(line);
       const result = transliterate(itrans);
-      let expected = cleanup(unicode[n - 1]!).text;
-
-      // The "(gg)" accent: expect one report per occurrence and "_" as typed.
-      const parenAccents = [...expected.matchAll(ACCENT_AFTER_PAREN)].length;
-      expected = expected.replace(ACCENT_AFTER_PAREN, (_m, mark: string) =>
-        mark === "॒" ? ")_" : ")'",
-      );
-      expect(result.issues.map((i) => i.message)).toEqual(
-        Array(parenAccents).fill('accent "_" must follow a vowel'),
-      );
-
+      const expected = cleanup(unicode[n - 1]!).text;
+      expect(result.issues, itrans).toEqual([]);
       expect(spaces(result.text)).toBe(spaces(expected));
     },
   );

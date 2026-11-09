@@ -140,7 +140,7 @@ combinations.
 **Status:** done, except the `(gm)/(gg)` encoding, which waits for the
 project owner's decision. Palette with tradition choice and missing-glyph
 marks (cmap of the bundled font); Clean up text with counts, preview and
-selection scope; font choice; reference screenshots reviewed and
+selection scope; reference screenshots reviewed and
 committed (`frontend/tests/e2e/rendering.spec.ts-snapshots/`);
 `docs/vedic-symbols.md`.
 
@@ -163,5 +163,4 @@ decision).
 
 ## Open inputs
 
--   How to encode the Taittirīya `(gm)`/`(gg)` anusvara (plain text in
-    parentheses today); decide in M7.
+-   (Resolved) Taittirīya `(gm)`/`(gg)` anusvara: ꣳ / ꣴ (U+A8F3 / U+A8F4).

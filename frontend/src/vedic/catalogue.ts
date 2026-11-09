@@ -73,6 +73,18 @@ export const TRADITIONS: Tradition[] = [
         input: "'''",
         source: "testdata/vedic/baraha/viraja-homa",
       },
+      {
+        cp: 0xa8f3,
+        label: "Anusvāra before sibilants (gm)",
+        input: "(gm)",
+        source: "testdata/vedic/baraha/viraja-homa",
+      },
+      {
+        cp: 0xa8f4,
+        label: "Anusvāra before sibilants (gg)",
+        input: "(gg)",
+        source: "testdata/vedic/baraha/viraja-homa",
+      },
     ],
   },
 ];

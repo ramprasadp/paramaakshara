@@ -3,6 +3,7 @@
 // Opening, saving, importing, exporting and recovering documents
 // (TECH_SPEC §10).
 
+import { barahaToItrans } from "./conversion/baraha";
 import { CONVERTER_VERSION } from "./conversion/itrans";
 import type { EditorDocument } from "./editor/document";
 import {
@@ -420,16 +421,18 @@ export class Files {
     text = (bom ? text.slice(1) : text).replaceAll("\r\n", "\n");
     let kind = fileKind(file.name);
     if (kind === "text") {
-      const as = await show<FileKind>(
+      const as = await show<FileKind | "baraha">(
         "Import as",
         [`How should ${file.name} be read?`],
         [
+          { label: "Baraha source", value: "baraha" },
           { label: "ITRANS input", value: "itrans" },
           { label: "Unicode output", value: "text", primary: true },
         ],
       );
       if (!as) return;
-      kind = as;
+      if (as === "baraha") text = barahaToItrans(text);
+      kind = as === "baraha" ? "itrans" : as;
     }
     try {
       const loaded = load(kind, text, this.ctx);

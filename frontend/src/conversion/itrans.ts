@@ -5,7 +5,7 @@
 // Deviations from ITRANS 5.3 are listed in docs/itrans-mappings.md. One
 // line is converted at a time; there is no state between calls.
 
-export const CONVERTER_VERSION = "itrans-5.3+pak/2";
+export const CONVERTER_VERSION = "itrans-5.3+pak/3";
 
 export interface Issue {
   /** Offset and length in the source line (UTF-16 units). */
@@ -125,6 +125,13 @@ const OTHER: Record<string, string> = {
   "|": "।",
 };
 
+// Taittirīya anusvara before sibilants ("gum"), written (gm)/(gg) as in
+// Baraha. They carry their own accent, so no reordering applies.
+const TAITTIRIYA_ANUSVARA: Record<string, string> = {
+  "(gm)": "\uA8F3", // DEVANAGARI SIGN CANDRABINDU VIRAMA
+  "(gg)": "\uA8F4", // DEVANAGARI SIGN DOUBLE CANDRABINDU VIRAMA
+};
+
 const VIRAMA = "्";
 const ACCENT_MARKS = "\u0951\u0952\u1CDA";
 
@@ -133,6 +140,7 @@ const TOKENS = [
   ...Object.keys(CONSONANTS),
   ...Object.keys(SIGNS),
   ...Object.keys(OTHER),
+  ...Object.keys(TAITTIRIYA_ANUSVARA),
   ".h",
   "{}",
 ].sort((a, b) => b.length - a.length);
@@ -232,6 +240,10 @@ export function transliterate(line: string, opts: Options = {}): Result {
         out = out.slice(0, -1);
       }
       out += SIGNS[tok] + accents;
+    } else if (tok in TAITTIRIYA_ANUSVARA) {
+      closeConsonant();
+      out += TAITTIRIYA_ANUSVARA[tok];
+      vowel = true; // an accent may follow, as in bhU'yAsa_(gg)_
     } else if (tok === ".h") {
       out += VIRAMA;
       pending = false;

@@ -18,13 +18,20 @@ character for it; the palette marks such symbols.
 Sign order: anusvara, visarga and chandrabindu come before an accent
 (ADR 0002).
 
-## Accents in use
+## Accents and signs in use
 
 | Glyph | Code point | Unicode name | Tradition(s) | Vedic meaning | Category | Input | Noto Serif Devanagari | Reference |
 |---|---|---|---|---|---|---|---|---|
 | ◌॒ | U+0952 | DEVANAGARI STRESS SIGN ANUDATTA | Ṛgveda, Taittirīya | Anudātta (low tone) | Mn | `_` | yes | purusha-sukta, viraja-homa |
 | ◌॑ | U+0951 | DEVANAGARI STRESS SIGN UDATTA | Ṛgveda, Taittirīya | Svarita (Unicode calls it UDATTA) | Mn | `'` | yes | purusha-sukta, viraja-homa |
 | ◌᳚ | U+1CDA | VEDIC TONE DOUBLE SVARITA | Taittirīya | Double (dīrgha) svarita | Mn | `'''` | yes | viraja-homa |
+| ꣳ | U+A8F3 | DEVANAGARI SIGN CANDRABINDU VIRAMA | Taittirīya | Anusvāra before sibilants, Baraha `(ग्म्)` | Lo | `(gm)` | yes | viraja-homa |
+| ꣴ | U+A8F4 | DEVANAGARI SIGN DOUBLE CANDRABINDU VIRAMA | Taittirīya | Anusvāra before sibilants, Baraha `(ग्ग्)` | Lo | `(gg)` | yes | viraja-homa |
+
+The Taittirīya anusvara before sibilants is encoded as U+A8F3 / U+A8F4
+(decided by the project owner, 2026-11-09). Baraha writes it as the
+plain text `(ग्म्)` / `(ग्ग्)`; Clean up text converts it (§6.8). An accent
+may follow it: भू॑यास॒ꣴ॒.
 
 U+0953 DEVANAGARI GRAVE ACCENT is what Baraha produces for the double
 svarita; it renders as a single slanted stroke. Paramaakshara does not
@@ -115,8 +122,8 @@ produce it, and Clean up text converts it to U+1CDA (§6.8).
 | ◌꣰ | U+A8F0 | COMBINING DEVANAGARI LETTER VI | — | not verified | Mn | — | yes | Unicode chart |
 | ◌꣱ | U+A8F1 | COMBINING DEVANAGARI SIGN AVAGRAHA | — | not verified | Mn | — | yes | Unicode chart |
 | ꣲ | U+A8F2 | DEVANAGARI SIGN SPACING CANDRABINDU | — | not verified | Lo | — | yes | Unicode chart |
-| ꣳ | U+A8F3 | DEVANAGARI SIGN CANDRABINDU VIRAMA | — | not verified | Lo | — | yes | Unicode chart |
-| ꣴ | U+A8F4 | DEVANAGARI SIGN DOUBLE CANDRABINDU VIRAMA | — | not verified | Lo | — | yes | Unicode chart |
+| ꣳ | U+A8F3 | DEVANAGARI SIGN CANDRABINDU VIRAMA | Taittirīya | Anusvāra before sibilants (gm) | Lo | `(gm)` | yes | viraja-homa |
+| ꣴ | U+A8F4 | DEVANAGARI SIGN DOUBLE CANDRABINDU VIRAMA | Taittirīya | Anusvāra before sibilants (gg) | Lo | `(gg)` | yes | viraja-homa |
 | ꣵ | U+A8F5 | DEVANAGARI SIGN CANDRABINDU TWO | — | not verified | Lo | — | yes | Unicode chart |
 | ꣶ | U+A8F6 | DEVANAGARI SIGN CANDRABINDU THREE | — | not verified | Lo | — | yes | Unicode chart |
 | ꣷ | U+A8F7 | DEVANAGARI SIGN CANDRABINDU AVAGRAHA | — | not verified | Lo | — | yes | Unicode chart |
@@ -131,9 +138,5 @@ produce it, and Clean up text converts it to U+1CDA (§6.8).
 
 ## Open questions
 
--   Taittirīya `(gm)` / `(gg)` anusvara: currently plain text in
-    parentheses. Candidate encodings are U+A8F3 DEVANAGARI SIGN
-    CANDRABINDU VIRAMA and U+A8F4 DEVANAGARI SIGN DOUBLE CANDRABINDU
-    VIRAMA; to be decided with the project owner.
 -   Further traditions (Śukla Yajurveda, Sāmaveda numerals) need verified
     sample texts before their meanings are listed.
