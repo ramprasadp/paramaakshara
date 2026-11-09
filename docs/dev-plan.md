@@ -79,6 +79,10 @@ M5 with the rest of the document handling.
 
 **Done when:** the model passes all tests without a browser.
 
+**Status:** done. 26 rule tests plus randomised tests (300 seeds × 40
+edits). Multi-line selection edits and merged segments are specified in
+§4.3a.
+
 ### M4 --- Editor wiring
 
 -   CodeMirror state fields tracking segment ranges, gutter markers

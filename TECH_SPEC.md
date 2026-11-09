@@ -299,6 +299,11 @@ rest of the document from following the source.
                                        kept).
   Paste of multiple lines              Treated as typing those lines.
 
+A merged segment (several source lines, created by §4.3) absorbs any
+source edit inside it, including new line breaks, and becomes stale.
+The exception is new lines typed at its very end, which become new
+linked segments as above.
+
 ### 4.3 Output edits
 
 Any user edit in the output pane (typing, paste, delete, cut, symbol
@@ -330,6 +335,34 @@ insertion, find/replace) follows these rules:
 
 The ITRANS source is never modified by an output edit, except when a
 whole segment is deleted.
+
+### 4.3a Edits that span several lines
+
+The rows of §4.2 and §4.3 are special cases of one rule, which also
+covers replacing or deleting a selection across several lines. It
+applies to either pane; "text" means the source in the input pane and
+the output in the output pane.
+
+1.  Let A and B be the segments containing the start and end of the
+    edit. A keeps its text before the edit; B keeps its text after it.
+2.  Segments entirely inside the edit lose all their text.
+3.  If A and B both keep text and the inserted text has no line break,
+    they are joined (§4.2 / §4.3 "line break deleted").
+4.  Otherwise A keeps the first resulting line, B the last, and every
+    other line becomes a new segment: linked in the input pane,
+    output-only in the output pane. An end segment that keeps no text
+    loses it like the segments in step 2.
+5.  An edit inside a single segment that adds line breaks keeps the
+    segment on the line holding its leading text, or, if it has none,
+    on the line holding its trailing text (so Enter at the start of a
+    line does not move the segment).
+6.  A segment that loses all its text: in the input pane, a linked one
+    is removed and a detached one becomes output-only; in the output
+    pane, it is removed together with its source.
+
+The implementation is `frontend/src/model/segments.ts`; randomised
+tests check that both panes' text always equals a plain text edit and
+that no manual output is lost.
 
 **Re-linking:** whenever a detached segment's output exactly equals
 `transliterate(source, outputScript)`, it becomes linked again and
