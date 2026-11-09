@@ -48,6 +48,7 @@ export class Files {
   /** Project serialisation at the last open or save; "" forces dirty. */
   private saved: string;
   private lastSnapshot = "";
+  private quitting = false;
   private settings: Settings;
   private readonly recoveryKey: string;
   private readonly onStatus: (name: string, dirty: boolean) => void;
@@ -79,7 +80,7 @@ export class Files {
       if (document.visibilityState === "hidden") void this.snapshot(true);
     });
     window.addEventListener("beforeunload", (e) => {
-      if (this.dirty()) e.preventDefault();
+      if (this.dirty() && !this.quitting) e.preventDefault();
     });
     this.report();
   }
@@ -482,6 +483,12 @@ export class Files {
     } catch {
       // Retried at the next interval.
     }
+  }
+
+  /** Stores a recovery snapshot now if there are unsaved changes. */
+  async saveSnapshotNow(): Promise<void> {
+    await this.snapshot();
+    this.quitting = true;
   }
 
   private async dropSnapshot(): Promise<void> {

@@ -516,3 +516,9 @@ button.symbol.missing .code {
 dialog:has(.baraha-input) {
   width: min(760px, calc(100vw - 32px));
 }
+
+.stopped {
+  margin: 20vh auto;
+  text-align: center;
+  color: var(--muted);
+}

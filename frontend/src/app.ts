@@ -12,7 +12,7 @@ import { ApiError, api, type ClientConfig } from "./services/api";
 import { looksLikeBaraha } from "./conversion/baraha";
 import { barahaDialog } from "./ui/baraha";
 import { cleanupCommand } from "./ui/cleanup";
-import { el, show } from "./ui/dialog";
+import { alertBox, confirmBox, el, show } from "./ui/dialog";
 import { Palette } from "./ui/palette";
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -79,6 +79,38 @@ async function reportSwitch(
       list,
     ],
     [{ label: "OK", value: true, primary: true }],
+  );
+}
+
+/** Stops the daemon after confirming unsaved work (§9.7). */
+async function quitApp(files: Files): Promise<void> {
+  if (
+    files.dirty() &&
+    !(await confirmBox(
+      "Quit with unsaved changes?",
+      "Your changes are kept as a recovery snapshot and offered the next time Paramaakshara starts.",
+      "Quit",
+    ))
+  )
+    return;
+  await files.saveSnapshotNow();
+  try {
+    await api.shutdown();
+  } catch (e) {
+    await alertBox(
+      "Could not quit",
+      e instanceof Error ? e.message : String(e),
+    );
+    return;
+  }
+  window.onbeforeunload = null;
+  document.body.replaceChildren(
+    el(
+      "main",
+      { className: "stopped" },
+      el("h1", {}, "Paramaakshara has stopped"),
+      el("p", {}, "You can close this tab."),
+    ),
   );
 }
 
@@ -204,6 +236,9 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     "file-save-as": () => f.saveAs(),
     "file-import": () => f.importFile(),
   };
+  const quit = byId<HTMLButtonElement>("quit");
+  quit.disabled = false;
+  quit.addEventListener("click", () => void quitApp(f));
   for (const [id, action] of Object.entries(actions)) {
     const b = byId<HTMLButtonElement>(id);
     b.disabled = false;

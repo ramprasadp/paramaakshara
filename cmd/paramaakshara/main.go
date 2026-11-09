@@ -33,6 +33,7 @@ var version = "dev"
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "paramaakshara:", err)
+		instance.ReportStartupError(err)
 		os.Exit(1)
 	}
 }

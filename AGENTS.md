@@ -26,6 +26,7 @@ make e2e     # Playwright browser tests (Chromium, Firefox, WebKit)
 make lint    # gofmt, go vet, tsc --noEmit, Prettier check
 make fmt     # format Go and frontend code
 make dev     # daemon on :7531 plus the Vite dev server
+make release # release artifacts in dist/ (docs/release.md)
 ```
 
 Run `make lint test` before considering a change done. Requires Go 1.25+

@@ -121,6 +121,7 @@ export const api = {
     s: Omit<Snapshot, "key" | "saved_at">,
     keepalive = false,
   ) => call<void>("PUT", `/api/recovery/${q(key)}`, s, keepalive),
+  shutdown: () => call<{ status: string }>("POST", "/api/shutdown"),
   deleteSnapshot: (key: string) =>
     call<void>("DELETE", `/api/recovery/${q(key)}`),
 };

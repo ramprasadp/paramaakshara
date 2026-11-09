@@ -161,6 +161,16 @@ decision).
 -   Signed and notarized macOS build, `THIRD_PARTY_NOTICES.md`, README,
     CONTRIBUTING.
 
+**Status:** done, except signing with a real Developer ID, which needs
+the maintainer's Apple account (secrets listed in `docs/release.md`).
+`make release` builds a universal `Paramaakshara.app` (no Dock icon; Quit
+in the editor; startup errors shown in an alert), static Linux binaries
+and checksums; the Release workflow does the same for `v*` tags into a
+draft release, signing and notarizing when the secrets exist. CI runs
+the browser tests. README (install), CONTRIBUTING, CHANGELOG and
+`docs/release.md` written. A clean copy of the repository builds and
+passes all tests by following CONTRIBUTING.
+
 ## Open inputs
 
 -   (Resolved) Taittirīya `(gm)`/`(gg)` anusvara: ꣳ / ꣴ (U+A8F3 / U+A8F4).

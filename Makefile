@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BIN     := bin/paramaakshara
 
-.PHONY: all build frontend test e2e lint fmt dev clean docker-binary docker
+.PHONY: all build frontend test e2e lint fmt dev clean docker-binary docker release
 
 all: lint test build
 
@@ -54,6 +54,11 @@ docker-binary: frontend
 
 docker: docker-binary
 	docker compose -f docker/compose.yaml build
+
+# Release artifacts in dist/ (docs/release.md). Set DEVELOPER_ID and
+# NOTARY_PROFILE to sign and notarize the macOS app.
+release:
+	scripts/release.sh
 
 clean:
 	rm -rf bin frontend/node_modules

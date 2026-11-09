@@ -285,3 +285,20 @@ test("the output script is saved with the project and restored on open", async (
   // Lines are linked, not "out of date": the file was read in its own script.
   await expect(page.locator("#counts")).toHaveText("1 line");
 });
+
+test("Quit asks first when there are unsaved changes", async ({ page }) => {
+  await signIn(page);
+  await expect(page.locator("#quit")).toBeEnabled();
+  await typeSource(page, "eka");
+  await page.click("#quit");
+  await expect(page.locator("dialog[open]")).toContainText(
+    "Quit with unsaved changes?",
+  );
+  // Cancel: actually quitting would stop the daemon the other tests use.
+  await button(page, "Cancel").click();
+  await expect(page.locator("#source")).toBeVisible();
+  const health = await page.evaluate(
+    async () => (await fetch("/api/health")).status,
+  );
+  expect(health).toBe(200);
+});

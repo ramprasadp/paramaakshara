@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -109,4 +110,31 @@ func OpenBrowser(url string) error {
 	}
 	go func() { _ = cmd.Wait() }()
 	return nil
+}
+
+// ReportStartupError shows err in an alert when the program was opened
+// as the macOS app, where standard error is not visible. Run from a
+// terminal or a script, it does nothing and returns false.
+func ReportStartupError(err error) bool {
+	if runtime.GOOS != "darwin" || isTerminal(os.Stderr) || !inAppBundle() {
+		return false
+	}
+	// The message is passed as an argument, never as script text.
+	cmd := exec.Command("osascript",
+		"-e", "on run argv",
+		"-e", `display alert "Paramaakshara could not start" message (item 1 of argv) as critical`,
+		"-e", "end run",
+		err.Error())
+	return cmd.Run() == nil
+}
+
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+// inAppBundle reports whether the executable is inside a .app bundle.
+func inAppBundle() bool {
+	exe, err := os.Executable()
+	return err == nil && strings.Contains(exe, ".app/Contents/MacOS/")
 }
