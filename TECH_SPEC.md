@@ -1053,12 +1053,9 @@ paramaakshara/
       routes.go
       auth.go           # session cookie, Host/Origin checks
     document/
-      store.go          # os.Root based access, atomic writes
-      revision.go
-      backup.go
-      recovery.go
-    project/
-      format.go         # .paramaakshara.json schema and validation
+      store.go          # os.Root based access, revisions, atomic
+                        # writes, backups
+      recovery.go       # recovery snapshots
     config/
       config.go
       paths.go          # per-OS config, data and log directories
@@ -1111,15 +1108,18 @@ it. Absolute paths are never accepted from the browser.
   GET      `/api/documents?root=`    List documents in a folder
   GET      `/api/document?root=&path=` Open a document
   PUT      `/api/document`           Save a document
-  POST     `/api/import`             Upload a file chosen from anywhere
-                                     on the computer (multipart)
-  GET      `/api/recovery`           List recovery snapshots
+  GET      `/api/recovery`           List recovery snapshots (without
+                                     their content)
+  GET      `/api/recovery/{key}`     Read one recovery snapshot
   PUT      `/api/recovery/{key}`     Store a recovery snapshot
   DELETE   `/api/recovery/{key}`     Discard a recovery snapshot
   POST     `/api/shutdown`           Stop the daemon
 
-Export as a download is done in the browser (Blob download) and needs no
-endpoint. Export into a document folder uses `PUT /api/document`.
+Import and export happen in the browser and need no endpoint. Import
+reads a file chosen from anywhere on the computer with the browser's
+file picker (rejecting invalid UTF-8); the result is an untitled
+document that Save puts into a document folder. Export downloads the
+Unicode output as a `.txt` file.
 
 Example save request:
 
@@ -1424,8 +1424,9 @@ font-specific codes. Plain-text export is always available.
     changes silently on open.
 -   Readers must reject files with a higher `format_version` than they
     support, with a clear message.
--   The schema is documented in `docs/architecture.md` and validated by
-    `internal/project`.
+-   The schema is validated by the frontend when a file is opened
+    (`frontend/src/model/project.ts`). The daemon stores project files as
+    opaque UTF-8 text.
 
 ### 10.4 Autosave, recovery and backups
 
@@ -1437,9 +1438,12 @@ font-specific codes. Plain-text export is always available.
     every `recovery.interval_seconds`, and when the page is hidden or
     about to unload. `{key}` identifies the document (or an untitled
     document) and stays the same for the browser session.
--   **Recovery on open:** when a document is opened, or on startup for
-    untitled documents, if a snapshot is newer than the last save the
-    user is offered Restore or Discard.
+-   **Recovery on startup:** when the editor starts, each snapshot left
+    by a closed or crashed page is offered with Restore, Discard or
+    Later. A restored document keeps its folder, path and base revision,
+    so saving it still detects changes made on disk in the meantime.
+    Snapshots are deleted when the document is saved, and after
+    `recovery.retention_days`.
 -   **Autosave to file** (`editor.autosave_to_file`, off by default)
     also saves the file itself on the same interval, with the same
     revision check.
@@ -1760,7 +1764,8 @@ file before the first release.
 
 ### 16.2 Go (backend)
 
-**Go 1.24 or later** (required for `os.Root`).
+**Go 1.25 or later** (required for `os.Root`, including `Rename` and
+`MkdirAll` inside a root).
 
 Standard library packages used:
 

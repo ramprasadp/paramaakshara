@@ -28,7 +28,7 @@ make fmt     # format Go and frontend code
 make dev     # daemon on :7531 plus the Vite dev server
 ```
 
-Run `make lint test` before considering a change done. Requires Go 1.24+
+Run `make lint test` before considering a change done. Requires Go 1.25+
 and Node.js LTS (build only).
 
 ## Layout

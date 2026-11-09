@@ -6,7 +6,7 @@ and [docs/dev-plan.md](docs/dev-plan.md).
 
 ## Building
 
-Requires Go 1.24 or later and Node.js (current LTS, build only).
+Requires Go 1.25 or later and Node.js (current LTS, build only).
 
 ``` sh
 make build          # builds the frontend and bin/paramaakshara

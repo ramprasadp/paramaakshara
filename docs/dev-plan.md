@@ -106,6 +106,10 @@ already (moved forward from M7) so U+1CDA renders.
 **Done when:** save → kill → recover works, and an external change to an
 open file triggers the conflict prompt.
 
+**Status:** done. Import and export run in the browser (no upload
+endpoint). Browser tests run against their own daemon (port 7541, HOME
+in `frontend/.e2e/`). Go minimum raised to 1.25.
+
 ### M6 --- ITRANS (Phase 2)
 
 -   Build the ITRANS test corpus from sanskritdocuments.org first.

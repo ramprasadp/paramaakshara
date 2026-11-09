@@ -218,3 +218,114 @@ button[data-insert] {
   color: var(--output-only);
   font-weight: 600;
 }
+
+.docname {
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.banner {
+  padding: 8px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--stale);
+  color: var(--stale);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+dialog {
+  min-width: min(480px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+
+dialog h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+dialog label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+dialog input,
+dialog select {
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+dialog input.path,
+dialog input.filter {
+  flex: 1;
+  width: 100%;
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.file-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.file-list li {
+  border-bottom: 1px solid var(--border);
+}
+
+.file-list li:last-child {
+  border-bottom: none;
+}
+
+.file-list button.file {
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 0;
+  padding: 6px 10px;
+  background: transparent;
+}
+
+.file-list button.file:hover {
+  background: var(--panel);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--stale);
+}

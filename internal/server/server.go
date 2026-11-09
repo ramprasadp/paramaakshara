@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ramprasadp/paramaakshara/internal/document"
 )
 
 // Options configures the handler returned by New.
@@ -21,6 +23,10 @@ type Options struct {
 	Auth    *Auth
 	// Shutdown is called by POST /api/shutdown. It must not block.
 	Shutdown func()
+	// Document API; nil leaves the endpoints out.
+	Store    *document.Store
+	Recovery *document.Recovery
+	Client   ClientConfig
 }
 
 // New returns the daemon's HTTP handler.
@@ -40,6 +46,9 @@ func New(opts Options) http.Handler {
 				opts.Shutdown()
 			}
 		})))
+	if opts.Store != nil {
+		(&api{store: opts.Store, recovery: opts.Recovery, client: opts.Client}).routes(mux, opts.Auth)
+	}
 	// Any other /api path: unknown endpoint, but only after the session
 	// check, so unauthenticated callers learn nothing about the API.
 	mux.Handle("/api/", requireSession(opts.Auth, http.HandlerFunc(

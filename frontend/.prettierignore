@@ -3,3 +3,5 @@ node_modules/
 package-lock.json
 test-results/
 spike/results/
+.e2e/
+.e2e-bin/

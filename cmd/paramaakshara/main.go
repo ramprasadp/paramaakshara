@@ -21,6 +21,7 @@ import (
 
 	"github.com/ramprasadp/paramaakshara/frontend"
 	"github.com/ramprasadp/paramaakshara/internal/config"
+	"github.com/ramprasadp/paramaakshara/internal/document"
 	"github.com/ramprasadp/paramaakshara/internal/instance"
 	"github.com/ramprasadp/paramaakshara/internal/logging"
 	"github.com/ramprasadp/paramaakshara/internal/server"
@@ -152,6 +153,20 @@ func run() error {
 	})
 	defer os.Remove(sessionPath)
 
+	store, err := document.NewStore(cfg.Documents.Roots, cfg.Documents.MaxDocumentBytes, cfg.Documents.BackupCount, paths.BackupsDir)
+	if err != nil {
+		return err
+	}
+	recovery := document.NewRecovery(paths.RecoveryDir, cfg.Documents.MaxDocumentBytes)
+	if err := recovery.Prune(time.Duration(cfg.Recovery.RetentionDays) * 24 * time.Hour); err != nil {
+		log.Printf("pruning recovery snapshots: %v", err)
+	}
+	roots := make([]string, len(cfg.Documents.Roots))
+	for i, r := range cfg.Documents.Roots {
+		roots[i] = r.Name
+		log.Printf("document folder %q: %s", r.Name, r.Path)
+	}
+
 	shutdown := make(chan struct{}, 1)
 	srv := &http.Server{
 		Handler: server.New(server.Options{
@@ -164,6 +179,14 @@ func run() error {
 				case shutdown <- struct{}{}:
 				default:
 				}
+			},
+			Store:    store,
+			Recovery: recovery,
+			Client: server.ClientConfig{
+				Roots:                   roots,
+				MaxDocumentBytes:        cfg.Documents.MaxDocumentBytes,
+				RecoveryIntervalSeconds: cfg.Recovery.IntervalSeconds,
+				Editor:                  cfg.Editor,
 			},
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

@@ -9,6 +9,34 @@
     <header class="toolbar">
       <strong class="app-name">Paramaakshara</strong>
       <span id="version" class="version"></span>
+      <span class="group" aria-label="File">
+        <button id="file-new" type="button" disabled>New</button>
+        <button id="file-open" type="button" title="Open (⌘O)" disabled>
+          Open…
+        </button>
+        <button id="file-save" type="button" title="Save (⌘S)" disabled>
+          Save
+        </button>
+        <button id="file-save-as" type="button" title="Save as (⇧⌘S)" disabled>
+          Save as…
+        </button>
+        <button
+          id="file-import"
+          type="button"
+          title="Open a file from anywhere on this computer"
+          disabled
+        >
+          Import…
+        </button>
+        <button
+          id="file-export"
+          type="button"
+          title="Download the Unicode output as a .txt file"
+        >
+          Export .txt
+        </button>
+      </span>
+      <span id="docname" class="docname"></span>
       <span class="spacer"></span>
       <button
         id="regen-line"
@@ -60,11 +88,14 @@
     </main>
     <footer class="status">
       <span id="counts"></span>
+      <span id="save-state"></span>
       <span class="spacer"></span>
       <span class="notice"
         >Converter: placeholder (copies ITRANS unchanged until M6)</span
       >
     </footer>
+    <div id="banner" class="banner" hidden></div>
+    <dialog id="dialog"></dialog>
     <script type="module" src="/src/app.ts"></script>
   </body>
 </html>

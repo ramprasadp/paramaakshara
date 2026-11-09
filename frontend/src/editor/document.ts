@@ -151,6 +151,24 @@ export class EditorDocument {
     this.refresh();
   }
 
+  /** Replaces the whole document, e.g. after opening a file. Clears undo history. */
+  load(segments: Segment[]): void {
+    this.segments = segments;
+    this.source.setState(
+      EditorState.create({
+        doc: sourceText(segments),
+        extensions: this.extensions("source"),
+      }),
+    );
+    this.output.setState(
+      EditorState.create({
+        doc: outputText(segments),
+        extensions: this.extensions("output"),
+      }),
+    );
+    this.refresh();
+  }
+
   private view(pane: Pane): EditorView {
     return pane === "source" ? this.source : this.output;
   }

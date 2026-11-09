@@ -7,7 +7,8 @@ import { defineConfig, type ProxyOptions } from "vite";
 
 // The Go daemon serves the built files from dist/. During development,
 // Vite serves the frontend and passes /api calls through to the daemon.
-const daemon = "http://127.0.0.1:7531";
+// PARAMAAKSHARA_DAEMON lets the browser tests use their own daemon.
+const daemon = process.env.PARAMAAKSHARA_DAEMON ?? "http://127.0.0.1:7531";
 
 const daemonProxy: ProxyOptions = {
   target: daemon,
