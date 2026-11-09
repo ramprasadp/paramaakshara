@@ -37,6 +37,7 @@ import {
 } from "@codemirror/commands";
 
 import { apply, diff, invert, type Patch } from "../model/patch";
+import type { Script } from "../conversion/script";
 import { applyPanePatch, type Pane } from "../model/undo";
 import {
   applyOutputChange,
@@ -64,6 +65,8 @@ export interface Counts {
 /** Marks transactions that only mirror the model into a pane. */
 const mirror = Annotation.define<boolean>();
 const patchEffect = StateEffect.define<Patch>();
+/** A change of output script, recorded in the output history (§4.6). */
+const scriptEffect = StateEffect.define<{ from: Script; to: Script }>();
 const setMarkers = StateEffect.define<RangeSet<GutterMarker>>();
 
 const markersField = StateField.define<RangeSet<GutterMarker>>({
@@ -128,6 +131,13 @@ export interface Options {
   confirm?: (message: string) => boolean;
   /** Conversion problems in a source line, shown as ⚠ (§4.4). */
   issues?: (source: string) => string[];
+  /** Initial output script. */
+  script?: Script;
+  /**
+   * Called whenever the output script changes, including by undo, before
+   * the segments change. context.convert must then write that script.
+   */
+  onScript?: (script: Script) => void;
 }
 
 export class EditorDocument {
@@ -138,6 +148,8 @@ export class EditorDocument {
   private readonly onChange: (counts: Counts) => void;
   private readonly confirm: (message: string) => boolean;
   private readonly issues: (source: string) => string[];
+  private readonly onScript: (script: Script) => void;
+  script: Script;
   private lastFocused: Pane = "source";
   private refreshQueued = false;
 
@@ -147,6 +159,8 @@ export class EditorDocument {
     this.onChange = opts.onChange ?? (() => {});
     this.confirm = opts.confirm ?? (() => true);
     this.issues = opts.issues ?? (() => []);
+    this.onScript = opts.onScript ?? (() => {});
+    this.script = opts.script ?? "devanagari";
     this.source = new EditorView({
       parent: opts.sourceParent,
       state: EditorState.create({
@@ -162,6 +176,42 @@ export class EditorDocument {
       }),
     });
     this.refresh();
+  }
+
+  /** Regenerates linked outputs that differ from the current converter. */
+  private regenerateLinked(segs: Segment[]): Segment[] {
+    return segs.map((s) => {
+      if (!s.linked) return s;
+      const output = this.ctx.convert(s.source!);
+      return output === s.output ? s : { ...s, output };
+    });
+  }
+
+  /** Sets the output script without touching the text (e.g. before loading a file). */
+  setScript(script: Script): void {
+    this.script = script;
+    this.onScript(script);
+  }
+
+  /**
+   * Changes the output script as one undoable step in the output history
+   * (§4.6). compute receives the segments once context.convert writes the
+   * new script, and returns the converted segments.
+   */
+  switchScript(to: Script, compute: (segs: Segment[]) => Segment[]): void {
+    const from = this.script;
+    if (to === from) return;
+    this.setScript(to);
+    const next = compute(this.segments);
+    const p = diff(this.segments, next);
+    this.output.dispatch({
+      changes: textChange(this.output.state.doc.toString(), outputText(next)),
+      effects: [
+        scriptEffect.of({ from, to }),
+        ...(p ? [patchEffect.of(p)] : []),
+      ],
+      userEvent: "script",
+    });
   }
 
   /** Replaces the whole document, e.g. after opening a file. Clears undo history. */
@@ -198,11 +248,18 @@ export class EditorDocument {
       drawSelection(),
       EditorView.lineWrapping,
       keymap.of([...defaultKeymap, ...historyKeymap]),
-      invertedEffects.of((tr) =>
-        tr.effects
+      // Undo restores the script before the segments that depend on it.
+      invertedEffects.of((tr) => [
+        ...tr.effects
+          .filter((e) => e.is(scriptEffect))
+          .map((e) => {
+            const v = e.value as { from: Script; to: Script };
+            return scriptEffect.of({ from: v.to, to: v.from });
+          }),
+        ...tr.effects
           .filter((e) => e.is(patchEffect))
           .map((e) => patchEffect.of(invert(e.value as Patch))),
-      ),
+      ]),
       EditorState.transactionExtender.of((tr) => this.extend(pane, tr)),
       EditorView.updateListener.of((u) => this.update(pane, u)),
       EditorView.domEventHandlers({
@@ -246,6 +303,13 @@ export class EditorDocument {
     let changed = false;
     for (const tr of u.transactions) {
       if (tr.annotation(mirror)) continue;
+      let scriptChanged = false;
+      for (const e of tr.effects) {
+        if (e.is(scriptEffect)) {
+          this.setScript((e.value as { to: Script }).to);
+          scriptChanged = true;
+        }
+      }
       const patches = tr.effects.filter((e) => e.is(patchEffect));
       // Undo and redo restore only this pane's side of segments that the
       // other pane has changed since (§4.7).
@@ -259,6 +323,12 @@ export class EditorDocument {
         // the other pane) falls back to the plain text edit.
         this.segments =
           next ?? this.applyChanges(pane, this.segments, tr.changes);
+        changed = true;
+      }
+      // Linked lines always follow the current script, including lines
+      // added after a switch that undo or redo has just reversed (§4.6).
+      if (scriptChanged) {
+        this.segments = this.regenerateLinked(this.segments);
         changed = true;
       }
     }

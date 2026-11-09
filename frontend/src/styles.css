@@ -8,6 +8,18 @@
   font-display: block;
 }
 
+@font-face {
+  font-family: "Paramaakshara Noto Serif Kannada";
+  src: url("/fonts/NotoSerifKannada-Regular.ttf") format("truetype");
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Paramaakshara Noto Serif Tamil";
+  src: url("/fonts/NotoSerifTamil-Regular.ttf") format("truetype");
+  font-display: block;
+}
+
 :root {
   --bg: #ffffff;
   --fg: #1f2328;
@@ -19,8 +31,12 @@
   --stale: #cf222e;
   --output-only: #1a7f37;
   --selection: #b6d6fd;
+  /* One stack for mixed-script text; the browser picks per character. */
+  --scripts-font:
+    "Paramaakshara Noto Serif Kannada", "Paramaakshara Noto Serif Tamil";
   --indic-font:
-    "Paramaakshara Noto Serif Devanagari", "Kohinoor Devanagari", serif;
+    "Paramaakshara Noto Serif Devanagari", var(--scripts-font),
+    "Kohinoor Devanagari", serif;
   color-scheme: light dark;
 }
 
@@ -461,5 +477,16 @@ button.symbol.missing .code {
 }
 
 .cleanup-line .after {
+  color: var(--fg);
+}
+
+.pane h2 select {
+  font: inherit;
+  font-weight: normal;
+  margin-left: 6px;
+  padding: 1px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
   color: var(--fg);
 }

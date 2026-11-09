@@ -149,6 +149,13 @@ committed (`frontend/tests/e2e/rendering.spec.ts-snapshots/`);
 -   Script conversion tables, selector, switching (§4.6), loss reporting,
     round-trip tests.
 
+**Status:** done. Tables generated from the UCD
+(`tools/gen-script-tables.py`); switching is one undo step that also
+restores the script; linked lines always follow the current script;
+script saved in project files; Noto Serif Kannada/Tamil bundled;
+`docs/script-conversion.md`. Tamil anusvara is written ம் (owner's
+decision).
+
 ### M9 --- Release (Phase 5)
 
 -   Signed and notarized macOS build, `THIRD_PARTY_NOTICES.md`, README,

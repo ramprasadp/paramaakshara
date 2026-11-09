@@ -214,3 +214,15 @@ export function lostOnSave(
   }
   return null;
 }
+
+/** The output script recorded in a project file, if it is a known one. */
+export function projectScript(
+  json: string,
+): "devanagari" | "kannada" | "tamil" | null {
+  try {
+    const s = (JSON.parse(json) as { output_script?: unknown }).output_script;
+    return s === "devanagari" || s === "kannada" || s === "tamil" ? s : null;
+  } catch {
+    return null;
+  }
+}

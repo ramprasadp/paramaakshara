@@ -41,7 +41,10 @@ Vite (MIT), Vitest (MIT), Playwright (Apache-2.0), Prettier (MIT),
   Font                                  Licence   Licence text
   ------------------------------------- --------- -----------------------------------------------
   Noto Serif Devanagari Regular (2022)  OFL-1.1   `frontend/public/fonts/NotoSerifDevanagari-OFL.txt`
+  Noto Serif Kannada Regular (2022)     OFL-1.1   `frontend/public/fonts/NotoSerifKannada-OFL.txt`
+  Noto Serif Tamil Regular (2022)       OFL-1.1   `frontend/public/fonts/NotoSerifTamil-OFL.txt`
 
-Source: https://github.com/notofonts/devanagari. Bundled because the
-macOS Devanagari fonts lack U+1CDA (ADR 0002). The font is distributed
+Sources: https://github.com/notofonts/devanagari, /kannada and /tamil.
+Bundled because the macOS Devanagari fonts lack U+1CDA (ADR 0002) and so
+that Kannada and Tamil output has fonts with the Vedic accents. The font is distributed
 alongside the program under its own licence, not relicensed.

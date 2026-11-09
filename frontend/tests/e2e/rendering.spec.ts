@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { cleanup } from "../../src/conversion/cleanup";
+import { fromDevanagari } from "../../src/conversion/script";
 
 const sample = (name: string, lines: number) =>
   cleanup(
@@ -41,6 +42,30 @@ for (const [name, lines] of [
     await expect(page.locator("#output .cm-content")).toHaveScreenshot(
       `${name}.png`,
       { maxDiffPixelRatio: 0.002 },
+    );
+  });
+}
+
+for (const script of ["kannada", "tamil"] as const) {
+  test(`renders purusha-sukta in ${script}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 700 });
+    await page.goto("/");
+    await page.waitForFunction(() => window.paramaakshara !== undefined);
+    const text = fromDevanagari(
+      sample("purusha-sukta.unicode.txt", 6),
+      script,
+    ).text;
+    await page.evaluate((text) => {
+      const d = window.paramaakshara.doc;
+      d.output.dispatch({ changes: { from: 0, insert: text } });
+      d.output.contentDOM.blur();
+    }, text);
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.locator("#output .cm-content")).toHaveScreenshot(
+      `purusha-sukta-${script}.png`,
+      {
+        maxDiffPixelRatio: 0.002,
+      },
     );
   });
 }

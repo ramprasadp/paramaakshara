@@ -1956,7 +1956,11 @@ changed.
   4    Canonical script        Decided       None. Stored text is shown text;
                                              script switching rewrites the
                                              output explicitly (§2.4, §4.6).
-  5    Tamil convention        Provisional   Superscript numerals (§7.3).
+  5    Tamil convention        Decided       Superscript numerals at the end of
+                                             the syllable; ृ/ऋ approximate and
+                                             reported (`docs/script-
+                                             conversion.md`). Anusvara is
+                                             written ம் (reads back as म्).
   6    Vedic inventory         Partly        Ṛgveda and Taittirīya accents
                                decided       verified from sample texts
                                              (`docs/vedic-symbols.md`); other

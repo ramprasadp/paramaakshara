@@ -107,7 +107,14 @@
         <div id="source" class="editor"></div>
       </section>
       <section class="pane">
-        <h2>Unicode output <span class="script">Devanagari</span></h2>
+        <h2>
+          Unicode output
+          <select id="script-select" title="Output script (§4.6)">
+            <option value="devanagari">Devanagari</option>
+            <option value="kannada">Kannada</option>
+            <option value="tamil">Tamil (superscript)</option>
+          </select>
+        </h2>
         <div id="output" class="editor"></div>
       </section>
     </main>
@@ -115,7 +122,7 @@
       <span id="counts"></span>
       <span id="save-state"></span>
       <span class="spacer"></span>
-      <span class="notice">ITRANS 5.3 → Devanagari</span>
+      <span id="converter" class="notice">ITRANS 5.3 → Devanagari</span>
     </footer>
     <div id="banner" class="banner" hidden></div>
     <dialog id="dialog"></dialog>

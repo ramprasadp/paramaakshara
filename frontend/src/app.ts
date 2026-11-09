@@ -1,27 +1,50 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import "./styles.css";
-import { transliterate, type Result } from "./conversion/itrans";
+import { transliterate } from "./conversion/itrans";
+import { fromDevanagari, type Script } from "./conversion/script";
+import { switchScript } from "./model/switch";
 import { EditorDocument, type Counts } from "./editor/document";
 import { Files } from "./files";
 import { fetchHealth } from "./health";
 import type { Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
 import { cleanupCommand } from "./ui/cleanup";
+import { el, show } from "./ui/dialog";
 import { Palette } from "./ui/palette";
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   return document.getElementById(id) as T;
 }
 
-/** Converts lines with a cache, since markers and output both need them. */
-function converter(devanagariDigits: boolean): (line: string) => Result {
-  const cache = new Map<string, Result>();
-  return (line) => {
+interface LineResult {
+  text: string;
+  issues: string[];
+}
+
+/**
+ * Converts an ITRANS line to the given script, with a cache per script,
+ * since markers and output both need the result.
+ */
+function converter(
+  devanagariDigits: boolean,
+): (line: string, script: Script) => LineResult {
+  const caches = new Map<Script, Map<string, LineResult>>();
+  return (line, script) => {
+    let cache = caches.get(script);
+    if (!cache) caches.set(script, (cache = new Map()));
     let r = cache.get(line);
     if (!r) {
       if (cache.size > 20_000) cache.clear();
-      r = transliterate(line, { devanagariDigits });
+      const dev = transliterate(line, { devanagariDigits });
+      const out = fromDevanagari(dev.text, script);
+      r = {
+        text: out.text,
+        issues: [
+          ...dev.issues.map((i) => i.message),
+          ...out.issues.map((i) => i.message),
+        ],
+      };
       cache.set(line, r);
     }
     return r;
@@ -35,6 +58,26 @@ function showCounts(c: Counts): void {
   if (c.outputOnly) parts.push(`${c.outputOnly} output-only`);
   if (c.errors) parts.push(`${c.errors} with ITRANS errors`);
   byId("counts").textContent = parts.join(" · ");
+}
+
+/** Lists lines that could not be converted exactly (§4.6). */
+async function reportSwitch(
+  to: Script,
+  issues: { line: number; messages: string[] }[],
+): Promise<void> {
+  const list = el("ul", { className: "issue-list" });
+  for (const i of issues.slice(0, 50))
+    list.append(el("li", {}, `Line ${i.line}: ${i.messages.join("; ")}`));
+  if (issues.length > 50)
+    list.append(el("li", {}, `… and ${issues.length - 50} more lines`));
+  await show(
+    "Some lines could not be converted exactly",
+    [
+      `Converted to ${to}. These lines were kept or written approximately; Undo (⌘Z in the output pane) switches back.`,
+      list,
+    ],
+    [{ label: "OK", value: true, primary: true }],
+  );
 }
 
 function showStatus(name: string, dirty: boolean): void {
@@ -65,22 +108,51 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
   }
 
   const convert = converter(config?.editor.digits !== "ascii");
+  const scriptSelect = byId<HTMLSelectElement>("script-select");
+  const configured = config?.editor.output_script;
+  let script: Script =
+    configured === "kannada" || configured === "tamil"
+      ? configured
+      : "devanagari";
   let nextId = 0;
   const context: Context = {
-    convert: (s) => convert(s).text,
+    convert: (s) => convert(s, script).text,
     newId: () => `s${++nextId}`,
   };
   let files: Files | null = null;
+  const showScript = () => {
+    scriptSelect.value = script;
+    byId("converter").textContent =
+      `ITRANS 5.3 → ${scriptSelect.selectedOptions[0]?.textContent ?? script}`;
+  };
   const doc = new EditorDocument({
     sourceParent: byId("source"),
     outputParent: byId("output"),
     context,
-    issues: (s) => convert(s).issues.map((i) => i.message),
+    script,
+    // Also called by undo and when a file in another script is opened.
+    onScript: (s) => {
+      script = s;
+      showScript();
+      files?.setOutputScript(s);
+    },
+    issues: (s) => convert(s, script).issues,
     onChange: (c) => {
       showCounts(c);
       files?.changed();
     },
     confirm: (message) => window.confirm(message),
+  });
+  showScript();
+  scriptSelect.addEventListener("change", () => {
+    const to = scriptSelect.value as Script;
+    let issues: { line: number; messages: string[] }[] = [];
+    doc.switchScript(to, (segs) => {
+      const r = switchScript(segs, to, context);
+      issues = r.issues;
+      return r.segments;
+    });
+    if (issues.length > 0) void reportSwitch(to, issues);
   });
 
   byId("regen-line").addEventListener("click", () => doc.regenerateLine());
@@ -104,7 +176,7 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     else
       root.setProperty(
         "--indic-font",
-        `"${f}", "Paramaakshara Noto Serif Devanagari", serif`,
+        `"${f}", "Paramaakshara Noto Serif Devanagari", var(--scripts-font), serif`,
       );
     try {
       localStorage.setItem("paramaakshara-font", f);
@@ -136,7 +208,9 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
   doc.source.focus();
   if (!config) return { doc, files };
 
-  const f = new Files(doc, context, config, showStatus);
+  const f = new Files(doc, context, config, showStatus, (s) =>
+    doc.setScript(s),
+  );
   files = f;
   const actions: Record<string, () => unknown> = {
     "file-new": () => f.newDocument(),

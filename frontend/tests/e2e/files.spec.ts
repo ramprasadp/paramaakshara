@@ -257,3 +257,31 @@ test("unsaved work is offered for recovery after the page is closed", async ({
   });
   await expect(next.locator("#save-state")).toHaveText("Unsaved changes");
 });
+
+test("the output script is saved with the project and restored on open", async ({
+  page,
+  browserName,
+}) => {
+  await signIn(page);
+  await typeSource(page, "bhagavadgItA");
+  await page.selectOption("#script-select", "tamil");
+  await expectTexts(page, { source: "bhagavadgItA", output: "ப⁴க³வத்³கீ³தா" });
+  const name = `${browserName}-tamil.paramaakshara.json`;
+  await saveAs(page, name);
+  await expect(page.locator("#save-state")).toHaveText("Saved");
+  const file = JSON.parse(readFileSync(join(DOCS, name), "utf8")) as {
+    output_script: string;
+  };
+  expect(file.output_script).toBe("tamil");
+
+  await page.selectOption("#script-select", "devanagari");
+  await page.click("#file-new");
+  await button(page, "Discard").click();
+  await page.click("#file-open");
+  await page.locator("dialog input.filter").fill(name);
+  await button(page, name).click();
+  await expectTexts(page, { source: "bhagavadgItA", output: "ப⁴க³வத்³கீ³தா" });
+  await expect(page.locator("#script-select")).toHaveValue("tamil");
+  // Lines are linked, not "out of date": the file was read in its own script.
+  await expect(page.locator("#counts")).toHaveText("1 line");
+});

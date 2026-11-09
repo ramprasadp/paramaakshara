@@ -16,7 +16,8 @@ import {
   type Loaded,
   type Settings,
 } from "./model/project";
-import { fromProject } from "./model/project";
+import { fromProject, projectScript } from "./model/project";
+import type { Script } from "./conversion/script";
 import { outputText, type Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
 import { alertBox, closeDialog, confirmBox, el, show } from "./ui/dialog";
@@ -55,6 +56,8 @@ export class Files {
     private readonly ctx: Context,
     private readonly config: ClientConfig,
     onStatus: (name: string, dirty: boolean) => void,
+    /** Sets the output script before a project in that script is read. */
+    private readonly useScript: (script: Script) => void = () => {},
   ) {
     this.onStatus = onStatus;
     const e = config.editor;
@@ -82,6 +85,18 @@ export class Files {
 
   private project(): string {
     return toProject(this.doc.segments, this.settings, CONVERTER_VERSION);
+  }
+
+  /** The output script is a document setting (§4.6), saved with it. */
+  setOutputScript(script: Script): void {
+    if (this.settings.output_script === script) return;
+    this.settings = { ...this.settings, output_script: script };
+    this.report();
+  }
+
+  private useProjectScript(json: string): void {
+    const s = projectScript(json);
+    if (s) this.useScript(s);
   }
 
   /** The document's Vedic tradition (§6.4); stored in the project file. */
@@ -154,6 +169,7 @@ export class Files {
     try {
       const d = await api.open(root, path);
       const kind = fileKind(path);
+      if (kind === "project") this.useProjectScript(d.content);
       const loaded = load(kind, d.content, this.ctx);
       this.setDocument(
         loaded,
@@ -495,7 +511,9 @@ export class Files {
       if (choice !== "restore") continue;
       try {
         const full = await api.snapshot(s.key);
-        const loaded = fromProject(JSON.stringify(full.project), this.ctx);
+        const json = JSON.stringify(full.project);
+        this.useProjectScript(json);
+        const loaded = fromProject(json, this.ctx);
         const kind = s.path ? fileKind(s.path) : "project";
         this.setDocument(
           loaded,
