@@ -34,11 +34,12 @@ fmt: frontend/node_modules
 	gofmt -w .
 	npm --prefix frontend run format
 
-# Runs the daemon and the Vite dev server together. Open the Vite URL;
-# Vite passes /api calls through to the daemon on port 7531.
+# Runs the daemon (port 7531, logging to the terminal) and the Vite dev
+# server together. Open the printed sign-in link with 7531 replaced by the
+# Vite port (5173); Vite passes /auth and /api through to the daemon.
 dev: frontend/node_modules
 	@trap 'kill 0' EXIT; \
-	go run ./cmd/paramaakshara & \
+	go run ./cmd/paramaakshara --port 7531 --no-browser --log-file - & \
 	npm --prefix frontend run dev
 
 clean:

@@ -1149,9 +1149,11 @@ requirements, not options:
     header equal to the daemon's own origin.
 -   **No CORS.** The daemon never sends `Access-Control-Allow-*`
     headers.
--   **Content Security Policy.** `default-src 'self'`; no inline
-    scripts; fonts and scripts are served by the daemon, never from a
-    CDN.
+-   **Content Security Policy.** `default-src 'self'; style-src 'self'
+    'unsafe-inline'; frame-ancestors 'none'; base-uri 'none';
+    form-action 'self'`. No inline scripts; fonts and scripts are served
+    by the daemon, never from a CDN. Inline styles are allowed because
+    CodeMirror injects its own stylesheet at runtime.
 -   **Restricted files.** File access is limited to configured document
     folders (§9.4).
 -   **Settings boundary.** The browser can change editor settings only.
@@ -1244,7 +1246,8 @@ created on first run.
                                                                            `0` disables.
   `recovery.interval_seconds`      `15`                      no            Snapshot interval while dirty.
   `recovery.retention_days`        `30`                      no            Old snapshots are deleted.
-  `logging.file`                   per-OS path (above)       no            Empty means the default path.
+  `logging.file`                   per-OS path (above)       no            Empty means the default path;
+                                                                           `-` means standard error.
   `logging.max_backups`            `14`                      no            Rotated log files kept.
   `editor.input_scheme`            `itrans`                  yes           Only `itrans` in v1.
   `editor.output_script`           `devanagari`              yes           Default for new documents.
@@ -1259,10 +1262,14 @@ created on first run.
                                                                            itself (§10.4).
 
 **Environment variables:** `PARAMAAKSHARA_CONFIG` (config file path),
-`PARAMAAKSHARA_PORT`.
+`PARAMAAKSHARA_PORT`, `PARAMAAKSHARA_LOG_FILE`.
 
-**Command-line flags:** `--config <path>`, `--port <n>`, `--no-browser`,
+**Command-line flags:** `--config <path>`, `--port <n>`,
+`--log-file <path>` (`-` for standard error), `--no-browser`,
 `--version`.
+
+`session.json` is written next to the config file in use, so instances
+started with different config files do not share it.
 
 Unknown keys are reported as a warning at startup and ignored. Invalid
 values (for example a non-loopback address or a port outside 1024--65535)
@@ -1275,15 +1282,18 @@ stop the daemon with a message naming the key.
 3.  If the port is in use, call `/api/health` on it:
     -   If it is Paramaakshara, read the running instance's
         `session.json`, open the browser at its `/auth` URL, and exit.
-        (The running instance issues a fresh single-use token for this
-        and writes it to `session.json`.)
+        This works because the running instance replaces its launch
+        token as soon as one is used and rewrites `session.json`, so the
+        file always holds an unused token.
     -   Otherwise exit with an error that names the port and the
         `server.port` setting / `--port` flag. The daemon does not pick
         another port silently, because the origin would change.
 4.  Write `session.json` (`port`, `pid`, current launch token; mode
     0600).
 5.  Open the browser (`open` on macOS, `xdg-open` on Linux, run with
-    `os/exec` and no shell) unless `--no-browser`.
+    `os/exec` and no shell) unless `--no-browser`. With `--no-browser`,
+    or if the browser cannot be opened, print the sign-in link on
+    standard output. The link is never written to the log.
 6.  On SIGINT, SIGTERM or `POST /api/shutdown`: stop accepting
     requests, finish in-flight writes, remove `session.json`, exit.
 

@@ -3,10 +3,22 @@
 /// <reference types="vitest/config" />
 
 import { resolve } from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig, type ProxyOptions } from "vite";
 
 // The Go daemon serves the built files from dist/. During development,
 // Vite serves the frontend and passes /api calls through to the daemon.
+const daemon = "http://127.0.0.1:7531";
+
+const daemonProxy: ProxyOptions = {
+  target: daemon,
+  changeOrigin: true,
+  configure: (proxy) => {
+    proxy.on("proxyReq", (req) => {
+      if (req.getHeader("origin")) req.setHeader("origin", daemon);
+    });
+  },
+};
+
 export default defineConfig({
   build: {
     outDir: "dist",
@@ -20,8 +32,12 @@ export default defineConfig({
     },
   },
   server: {
+    // The daemon checks Host and Origin (spec §9.5), so the proxy presents
+    // the daemon's own address and origin. /auth is proxied too, so the
+    // daemon's sign-in link works with the Vite port in place of 7531.
     proxy: {
-      "/api": "http://127.0.0.1:7531",
+      "/api": daemonProxy,
+      "/auth": daemonProxy,
     },
     // The spike loads sample texts from ../testdata.
     fs: { allow: [".."] },

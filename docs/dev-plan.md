@@ -66,6 +66,10 @@ ADR 0001.
 
 **Done when:** `httptest` tests cover every rule in §9.5.
 
+**Status:** done. Also added `--log-file` / `PARAMAAKSHARA_LOG_FILE`
+(`-` for standard error). Creating the default document folder moves to
+M5 with the rest of the document handling.
+
 ### M3 --- Segment model
 
 -   `frontend/src/model/segments.ts`: pure TypeScript implementing every
