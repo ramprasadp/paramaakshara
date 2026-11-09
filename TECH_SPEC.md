@@ -747,6 +747,13 @@ The palette must:
 -   Preserve the current selection/cursor behaviour.
 -   Support keyboard accessibility.
 -   Permit future configurable mappings.
+-   Mark symbols the bundled font has no glyph for. Coverage is read from
+    the font's character map; for other fonts it is not known and the
+    palette says so.
+
+The Devanagari font is chosen in the toolbar. The choice is a per-browser
+convenience kept in browser storage; `editor.fonts` in the config is not
+yet used.
 
 Example layout:
 
@@ -1950,9 +1957,10 @@ changed.
                                              script switching rewrites the
                                              output explicitly (§2.4, §4.6).
   5    Tamil convention        Provisional   Superscript numerals (§7.3).
-  6    Vedic inventory         Open          Per tradition; the traditions to
-                                             support first must be confirmed
-                                             with users.
+  6    Vedic inventory         Partly        Ṛgveda and Taittirīya accents
+                               decided       verified from sample texts
+                                             (`docs/vedic-symbols.md`); other
+                                             traditions need verified samples.
   7    Vedic keystrokes        Decided       `_` anudātta, `'` svarita, `'''`
                                for v1        double svarita (§5.3). Further
                                              mappings are data-driven. Baraha

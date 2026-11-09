@@ -7,6 +7,8 @@ import { Files } from "./files";
 import { fetchHealth } from "./health";
 import type { Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
+import { cleanupCommand } from "./ui/cleanup";
+import { Palette } from "./ui/palette";
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   return document.getElementById(id) as T;
@@ -91,6 +93,46 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     b.addEventListener("click", () => doc.insertInOutput(b.dataset.insert!));
   }
   byId("file-export").addEventListener("click", () => files?.exportText());
+  byId("cleanup").addEventListener("click", () => void cleanupCommand(doc));
+
+  // Devanagari font: a per-browser convenience, so kept in localStorage.
+  const fontSelect = byId<HTMLSelectElement>("font-select");
+  const applyFont = () => {
+    const f = fontSelect.value;
+    const root = document.documentElement.style;
+    if (f === "bundled") root.removeProperty("--indic-font");
+    else
+      root.setProperty(
+        "--indic-font",
+        `"${f}", "Paramaakshara Noto Serif Devanagari", serif`,
+      );
+    try {
+      localStorage.setItem("paramaakshara-font", f);
+    } catch {
+      // Storage unavailable: the choice lasts for this page only.
+    }
+  };
+  try {
+    const saved = localStorage.getItem("paramaakshara-font");
+    if (saved && [...fontSelect.options].some((o) => o.value === saved))
+      fontSelect.value = saved;
+  } catch {
+    // Use the default font.
+  }
+  fontSelect.addEventListener("change", applyFont);
+  applyFont();
+
+  let tradition = config?.editor.vedic_tradition ?? "rigveda";
+  const palette = new Palette(byId("palette"), {
+    doc,
+    tradition: () => files?.tradition() ?? tradition,
+    setTradition: (id) => {
+      tradition = id;
+      files?.setTradition(id);
+    },
+    bundledFont: () => fontSelect.value === "bundled",
+  });
+  byId("palette-toggle").addEventListener("click", () => palette.toggle());
   doc.source.focus();
   if (!config) return { doc, files };
 

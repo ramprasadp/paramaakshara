@@ -43,6 +43,11 @@
   box-sizing: border-box;
 }
 
+/* Elements styled with display: grid/flex must still hide. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   height: 100%;
@@ -336,4 +341,125 @@ dialog input.filter {
 
 #save-state {
   margin-left: 12px;
+}
+
+.font-choice {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.font-choice select,
+.palette select,
+.palette input {
+  font: inherit;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.palette {
+  max-height: 40vh;
+  overflow: auto;
+  padding: 8px 16px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.palette-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.palette-head .filter {
+  flex: 1;
+  min-width: 12em;
+}
+
+.palette-group h3 {
+  margin: 8px 0 4px;
+  font-size: 13px;
+}
+
+.palette-group p {
+  margin: 0 0 4px;
+  font-size: 12px;
+}
+
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 4px;
+}
+
+button.symbol {
+  display: grid;
+  grid-template-columns: 2.4em 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  align-items: center;
+  text-align: left;
+  padding: 4px 6px;
+}
+
+button.symbol .glyph {
+  grid-row: span 2;
+  font-family: var(--indic-font);
+  font-size: 24px;
+  text-align: center;
+}
+
+button.symbol .label {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.symbol .code {
+  font:
+    11px ui-monospace,
+    monospace;
+  color: var(--muted);
+}
+
+button.symbol.missing {
+  border-style: dashed;
+}
+
+button.symbol.missing .code {
+  color: var(--stale);
+}
+
+.cleanup-fixes label {
+  align-items: flex-start;
+}
+
+.cleanup-preview {
+  margin-top: 12px;
+  max-height: 30vh;
+  overflow: auto;
+}
+
+.cleanup-line {
+  font-family: var(--indic-font);
+  font-size: 18px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.cleanup-line .before {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.cleanup-line .after {
+  color: var(--fg);
 }

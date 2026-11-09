@@ -71,6 +71,9 @@ pass.
     string is unreadable and easily corrupted.
 -   **Accent order:** anusvara, visarga or chandrabindu comes first, then
     the accent (भूमिं॑). The reverse renders as a dotted circle (ADR 0002).
+-   **Rendering references:** screenshot baselines in
+    `frontend/tests/e2e/rendering.spec.ts-snapshots/` change only after a
+    person has looked at the new images (`--update-snapshots`).
 -   **Fonts:** Noto Devanagari is the default because macOS fonts lack
     U+1CDA. Check rendering in all three engines, not just one.
 -   **Do not edit files in `testdata/`** except to add new samples. Any

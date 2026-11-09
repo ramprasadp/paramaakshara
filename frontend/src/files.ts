@@ -84,6 +84,16 @@ export class Files {
     return toProject(this.doc.segments, this.settings, CONVERTER_VERSION);
   }
 
+  /** The document's Vedic tradition (§6.4); stored in the project file. */
+  tradition(): string {
+    return this.settings.vedic_tradition;
+  }
+
+  setTradition(id: string): void {
+    this.settings = { ...this.settings, vedic_tradition: id };
+    this.report();
+  }
+
   dirty(): boolean {
     return this.project() !== this.saved;
   }

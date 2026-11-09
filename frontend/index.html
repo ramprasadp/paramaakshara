@@ -75,7 +75,32 @@
           ◌᳚
         </button>
       </span>
+      <button
+        id="palette-toggle"
+        type="button"
+        title="Vedic symbol palette"
+        aria-controls="palette"
+      >
+        Symbols…
+      </button>
+      <button
+        id="cleanup"
+        type="button"
+        title="Fix accent order, Baraha double svarita, short e/o and colon visarga in the selection or the whole output"
+      >
+        Clean up…
+      </button>
+      <label class="font-choice" title="Devanagari font">
+        Font
+        <select id="font-select">
+          <option value="bundled">Noto Serif (bundled)</option>
+          <option value="Kohinoor Devanagari">Kohinoor Devanagari</option>
+          <option value="ITF Devanagari">ITF Devanagari</option>
+          <option value="Devanagari Sangam MN">Devanagari Sangam MN</option>
+        </select>
+      </label>
     </header>
+    <aside id="palette" class="palette" hidden></aside>
     <main class="panes">
       <section class="pane">
         <h2>ITRANS input</h2>

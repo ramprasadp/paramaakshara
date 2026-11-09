@@ -137,6 +137,13 @@ M7 adds the command around it.
 **Done when:** accents render correctly in the documented browser/font
 combinations.
 
+**Status:** done, except the `(gm)/(gg)` encoding, which waits for the
+project owner's decision. Palette with tradition choice and missing-glyph
+marks (cmap of the bundled font); Clean up text with counts, preview and
+selection scope; font choice; reference screenshots reviewed and
+committed (`frontend/tests/e2e/rendering.spec.ts-snapshots/`);
+`docs/vedic-symbols.md`.
+
 ### M8 --- Kannada and Tamil (Phase 4)
 
 -   Script conversion tables, selector, switching (§4.6), loss reporting,

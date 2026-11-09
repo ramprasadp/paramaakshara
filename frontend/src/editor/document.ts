@@ -310,7 +310,7 @@ export class EditorDocument {
         pos += line.length + 1;
       }
     }
-    if (pos - 1 !== text.length && this.segments.length > 0) {
+    if (pos > 0 && pos - 1 !== text.length && this.segments.length > 0) {
       console.warn(`paramaakshara: ${pane} markers out of step with the text`);
     }
     return b.finish();
@@ -382,6 +382,43 @@ export class EditorDocument {
       userEvent: "regenerate",
     });
     return true;
+  }
+
+  /**
+   * The output lines a command should act on: those touched by the
+   * selection, or all lines when nothing is selected. Returns 0-based
+   * line indexes and their text.
+   */
+  outputLines(): { index: number; text: string }[] {
+    const state = this.output.state;
+    const sel = state.selection.main;
+    const first = sel.empty ? 1 : state.doc.lineAt(sel.from).number;
+    const last = sel.empty ? state.doc.lines : state.doc.lineAt(sel.to).number;
+    const out = [];
+    for (let n = first; n <= last; n++)
+      out.push({ index: n - 1, text: state.doc.line(n).text });
+    return out;
+  }
+
+  /**
+   * Replaces the text of some output lines as one undoable step. Each line
+   * is changed only where it differs, so the edit rules (§4.3) apply as
+   * for typing: changed lines are detached, others are untouched.
+   */
+  replaceOutputLines(
+    lines: { index: number; text: string }[],
+    userEvent: string,
+  ): void {
+    const doc = this.output.state.doc;
+    const changes = lines.flatMap(({ index, text }) => {
+      const line = doc.line(index + 1);
+      if (line.text === text) return [];
+      const c = textChange(line.text, text);
+      return [
+        { from: line.from + c.from, to: line.from + c.to, insert: c.insert },
+      ];
+    });
+    if (changes.length > 0) this.output.dispatch({ changes, userEvent });
   }
 
   /** Inserts text at the output cursor, e.g. from the symbol palette. */
