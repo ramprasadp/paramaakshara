@@ -41,6 +41,17 @@ Flags override environment variables, which override `config.json`. All
 settings are described in TECH_SPEC §9.6. Logs rotate daily; 14 days
 are kept. Stop the daemon with Ctrl-C.
 
+## Docker
+
+A small image (about 8 MB) with the prebuilt binary; see
+[docker/README.md](docker/README.md):
+
+``` sh
+make docker
+docker compose -f docker/compose.yaml up -d
+docker compose -f docker/compose.yaml logs    # sign-in link
+```
+
 ## Development
 
 ``` sh

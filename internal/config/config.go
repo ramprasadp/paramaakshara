@@ -28,6 +28,10 @@ type Server struct {
 	ListenAddress string `json:"listen_address"`
 	Port          int    `json:"port"`
 	OpenBrowser   bool   `json:"open_browser"`
+	// Container is set from PARAMAAKSHARA_CONTAINER, never from the file.
+	// It allows listening on all interfaces inside a container whose port
+	// is published on the host's loopback only (docker/compose.yaml).
+	Container bool `json:"-"`
 }
 
 type Root struct {
@@ -147,7 +151,7 @@ func unknownKeys(t reflect.Type, raw map[string]any, prefix string) []string {
 // Validate checks the values the daemon depends on. Errors name the key.
 func (c *Config) Validate() error {
 	ip := net.ParseIP(c.Server.ListenAddress)
-	if ip == nil || !ip.IsLoopback() {
+	if ip == nil || !(ip.IsLoopback() || (c.Server.Container && ip.IsUnspecified())) {
 		return fmt.Errorf("server.listen_address %q: must be a loopback IP address such as 127.0.0.1", c.Server.ListenAddress)
 	}
 	if c.Server.Port < 1024 || c.Server.Port > 65535 {

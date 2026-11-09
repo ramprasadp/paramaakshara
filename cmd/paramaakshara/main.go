@@ -81,6 +81,13 @@ func loadConfig(f flags, paths config.Paths) (config.Config, string, []string, e
 		}
 		cfg.Server.Port = p
 	}
+	if os.Getenv("PARAMAAKSHARA_CONTAINER") == "1" {
+		// Inside a container, loopback is not reachable from the host; the
+		// port must be published on the host's 127.0.0.1 only.
+		cfg.Server.Container = true
+		cfg.Server.ListenAddress = "0.0.0.0"
+		cfg.Server.OpenBrowser = false
+	}
 	if v := os.Getenv("PARAMAAKSHARA_LOG_FILE"); v != "" {
 		cfg.Logging.File = v
 	}
@@ -196,8 +203,11 @@ func run() error {
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Serve(ln) }()
 	log.Printf("listening on http://%s/", addr)
+	if cfg.Server.Container {
+		log.Printf("container mode: listening on all interfaces inside the container; publish the port on the host's 127.0.0.1 only")
+	}
 
-	fmt.Printf("Paramaakshara %s running at http://%s/\n", version, addr)
+	fmt.Printf("Paramaakshara %s running at http://127.0.0.1:%d/\n", version, port)
 	if cfg.Logging.File != logging.Stderr {
 		fmt.Printf("Log: %s\n", cfg.Logging.File)
 	}

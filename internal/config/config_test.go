@@ -135,3 +135,19 @@ func TestExpandPaths(t *testing.T) {
 		t.Errorf("stderr marker changed: %q %v", c.Logging.File, err)
 	}
 }
+
+func TestContainerAllowsOnlyAllInterfaces(t *testing.T) {
+	c := Default("/docs")
+	c.Server.ListenAddress = "0.0.0.0"
+	if err := c.Validate(); err == nil {
+		t.Fatal("0.0.0.0 accepted outside container mode")
+	}
+	c.Server.Container = true
+	if err := c.Validate(); err != nil {
+		t.Fatalf("0.0.0.0 in container mode: %v", err)
+	}
+	c.Server.ListenAddress = "192.168.1.5"
+	if err := c.Validate(); err == nil {
+		t.Fatal("a LAN address accepted in container mode")
+	}
+}

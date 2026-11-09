@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Run Paramaakshara in Docker. From the repository root:
+#
+#   make docker                                   # build the binary and image
+#   docker compose -f docker/compose.yaml up -d
+#   docker compose -f docker/compose.yaml logs    # shows the sign-in link
+#
+# See docker/README.md.
+
+name: paramaakshara
+
+services:
+  paramaakshara:
+    build: .
+    image: paramaakshara:local
+    ports:
+      # Published on the host's loopback only. The port must be the same
+      # inside and outside, because the daemon checks the Host header.
+      - "127.0.0.1:${PARAMAAKSHARA_PORT:-7531}:${PARAMAAKSHARA_PORT:-7531}"
+    environment:
+      PARAMAAKSHARA_PORT: ${PARAMAAKSHARA_PORT:-7531}
+      TZ: ${TZ:-UTC}
+    volumes:
+      # Config, session, recovery snapshots and backups.
+      - state:/data
+      # Your documents, shown as the "Documents" folder in Open and Save.
+      - ${PARAMAAKSHARA_DOCUMENTS:-${HOME}/Documents/Paramaakshara}:/data/Documents/Paramaakshara
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+volumes:
+  state:

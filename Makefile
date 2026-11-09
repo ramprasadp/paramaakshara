@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BIN     := bin/paramaakshara
 
-.PHONY: all build frontend test e2e lint fmt dev clean
+.PHONY: all build frontend test e2e lint fmt dev clean docker-binary docker
 
 all: lint test build
 
@@ -41,6 +41,19 @@ dev: frontend/node_modules
 	@trap 'kill 0' EXIT; \
 	go run ./cmd/paramaakshara --port 7531 --no-browser --log-file - & \
 	npm --prefix frontend run dev
+
+# Docker (docker/README.md): a static Linux binary for the image, then
+# the image itself. DOCKER_ARCH defaults to this machine's architecture.
+DOCKER_ARCH ?= $(shell go env GOARCH)
+
+docker-binary: frontend
+	mkdir -p docker/bin
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(DOCKER_ARCH) go build -tags timetzdata -trimpath \
+		-ldflags "-s -w -X main.version=$(VERSION)" -o docker/bin/paramaakshara ./cmd/paramaakshara
+	cp LICENSE THIRD_PARTY_NOTICES.md docker/bin/
+
+docker: docker-binary
+	docker compose -f docker/compose.yaml build
 
 clean:
 	rm -rf bin frontend/node_modules

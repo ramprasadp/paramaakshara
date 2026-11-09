@@ -1198,7 +1198,12 @@ visits (cross-site requests, DNS rebinding). The following are
 requirements, not options:
 
 -   **Loopback only.** `server.listen_address` must be a loopback
-    address; the daemon refuses to start otherwise.
+    address; the daemon refuses to start otherwise. The one exception
+    is a container (`PARAMAAKSHARA_CONTAINER=1`, set by the image in
+    `docker/`): there the daemon listens on all interfaces inside the
+    container, whose own loopback the host cannot reach, and the port
+    is published on the host's `127.0.0.1` only. The setting can come
+    only from the environment, never from the config file.
 -   **Host check.** Every request must have a `Host` header of
     `127.0.0.1:<port>` or `localhost:<port>`; others get 403. This
     blocks DNS rebinding.

@@ -34,6 +34,7 @@ go.work.sum
 
 # Build output
 /bin/
+/docker/bin/
 /paramaakshara
 
 # Frontend
