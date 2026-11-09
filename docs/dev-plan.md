@@ -92,6 +92,10 @@ edits). Multi-line selection edits and merged segments are specified in
 **Done when:** typing in the left pane updates the right; editing one
 output line leaves the other lines following the source.
 
+**Status:** done. Per-pane undo with segment patches (§4.7), status bar,
+accent insert buttons, dark mode. Noto Serif Devanagari is bundled
+already (moved forward from M7) so U+1CDA renders.
+
 ### M5 --- Files
 
 -   Document list/open/save with `os.Root`, revisions and 409 conflicts,

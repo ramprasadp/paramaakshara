@@ -6,7 +6,65 @@
     <title>Paramaakshara</title>
   </head>
   <body>
-    <main id="app"></main>
+    <header class="toolbar">
+      <strong class="app-name">Paramaakshara</strong>
+      <span id="version" class="version"></span>
+      <span class="spacer"></span>
+      <button
+        id="regen-line"
+        type="button"
+        title="Replace the output of the current line with the transliteration of its ITRANS"
+      >
+        Regenerate line
+      </button>
+      <button
+        id="regen-all"
+        type="button"
+        title="Replace every manually edited line with the transliteration of its ITRANS"
+      >
+        Regenerate all
+      </button>
+      <span class="group" aria-label="Insert into output">
+        <button
+          type="button"
+          data-insert="&#x0952;"
+          title="Anudātta U+0952 (ITRANS _)"
+        >
+          ◌॒
+        </button>
+        <button
+          type="button"
+          data-insert="&#x0951;"
+          title="Svarita U+0951 (ITRANS ')"
+        >
+          ◌॑
+        </button>
+        <button
+          type="button"
+          data-insert="&#x1CDA;"
+          title="Double svarita U+1CDA (ITRANS ''')"
+        >
+          ◌᳚
+        </button>
+      </span>
+    </header>
+    <main class="panes">
+      <section class="pane">
+        <h2>ITRANS input</h2>
+        <div id="source" class="editor"></div>
+      </section>
+      <section class="pane">
+        <h2>Unicode output <span class="script">Devanagari</span></h2>
+        <div id="output" class="editor"></div>
+      </section>
+    </main>
+    <footer class="status">
+      <span id="counts"></span>
+      <span class="spacer"></span>
+      <span class="notice"
+        >Converter: placeholder (copies ITRANS unchanged until M6)</span
+      >
+    </footer>
     <script type="module" src="/src/app.ts"></script>
   </body>
 </html>

@@ -438,6 +438,19 @@ line) are allowed and saved exactly as shown.
 -   Undoing a manual output edit restores the previous output; the
     re-linking rule then makes the segment linked again if the output
     matches the source.
+-   Undo and redo in one pane restore only that pane's side of a line
+    that the other pane has changed since. For example: edit output line
+    2, then edit its ITRANS, then undo in the output pane. The output is
+    restored and the ITRANS edit is kept; the line stays detached and
+    stale.
+-   Undo in the input pane never discards manual output. If it removes a
+    line whose output was edited by hand, that output stays as an
+    output-only line.
+
+Implementation: every edit records a patch of the segments it changed
+(`frontend/src/model/patch.ts`) in the same CodeMirror transaction, so
+the pane's history replays the inverse patch with the text
+(`frontend/src/model/undo.ts`).
 
 ------------------------------------------------------------------------
 

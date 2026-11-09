@@ -1,0 +1,220 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* Bundled because the macOS Devanagari fonts lack the double svarita
+   U+1CDA (ADR 0002). OFL-1.1; see fonts/NotoSerifDevanagari-OFL.txt. */
+@font-face {
+  font-family: "Paramaakshara Noto Serif Devanagari";
+  src: url("/fonts/NotoSerifDevanagari-Regular.ttf") format("truetype");
+  font-display: block;
+}
+
+:root {
+  --bg: #ffffff;
+  --fg: #1f2328;
+  --muted: #59636e;
+  --border: #d1d9e0;
+  --panel: #f6f8fa;
+  --accent: #0969da;
+  --detached: #9a6700;
+  --stale: #cf222e;
+  --output-only: #1a7f37;
+  --selection: #b6d6fd;
+  --indic-font:
+    "Paramaakshara Noto Serif Devanagari", "Kohinoor Devanagari", serif;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --fg: #e6edf3;
+    --muted: #9198a1;
+    --border: #3d444d;
+    --panel: #151b23;
+    --accent: #4493f8;
+    --detached: #d29922;
+    --stale: #f85149;
+    --output-only: #3fb950;
+    --selection: #264f78;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    14px/1.4 system-ui,
+    sans-serif;
+}
+
+.toolbar,
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.status {
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.version,
+.notice {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.group {
+  display: inline-flex;
+  gap: 2px;
+}
+
+button {
+  font: inherit;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button[data-insert] {
+  font-family: var(--indic-font);
+  font-size: 20px;
+  min-width: 2.2em;
+  padding: 0 6px;
+  line-height: 1.6;
+}
+
+.panes {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px 16px;
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .panes {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pane h2 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.script {
+  font-weight: normal;
+}
+
+.editor {
+  flex: 1;
+  min-height: 12em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.editor .cm-editor {
+  height: 100%;
+  font-size: 22px;
+}
+
+.editor .cm-scroller {
+  font-family: var(--indic-font);
+  line-height: 1.9;
+}
+
+.editor .cm-editor {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.editor .cm-editor.cm-focused {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.editor .cm-gutters {
+  background: var(--panel);
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+}
+
+.editor .cm-content {
+  caret-color: var(--fg);
+}
+
+.editor .cm-editor .cm-cursor {
+  border-left-color: var(--fg);
+}
+
+/* More specific than CodeMirror's built-in light selection colours. */
+.editor .cm-editor .cm-scroller .cm-selectionLayer .cm-selectionBackground,
+.editor
+  .cm-editor.cm-focused
+  .cm-scroller
+  .cm-selectionLayer
+  .cm-selectionBackground {
+  background: var(--selection);
+}
+
+.seg-gutter {
+  min-width: 1.8em;
+  text-align: center;
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+}
+
+.seg-detached {
+  color: var(--detached);
+}
+
+.seg-stale {
+  color: var(--stale);
+  font-weight: 600;
+}
+
+.seg-output-only {
+  color: var(--output-only);
+  font-weight: 600;
+}

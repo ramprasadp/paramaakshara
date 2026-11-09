@@ -55,6 +55,8 @@ purusha-sukta, 43 in viraja-homa, and never the other order.
 
 ## Consequences
 
+-   Noto Serif Devanagari Regular was bundled in M4
+    (`frontend/public/fonts/`), ahead of the rest of the font work.
 -   Phase 3 font work starts from Noto; other Vedic fonts (Shobhika,
     Siddhanta) are evaluated against these same strings.
 -   Kannada and Tamil fonts must be tested with the same strings in M8.

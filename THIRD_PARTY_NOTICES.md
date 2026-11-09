@@ -36,7 +36,12 @@ Go toolchain (BSD-3-Clause), Node.js (MIT), TypeScript (Apache-2.0),
 Vite (MIT), Vitest (MIT), Playwright (Apache-2.0), Prettier (MIT),
 `@types/node` (MIT).
 
-## Fonts
+## Fonts (embedded in the binary)
 
-None bundled yet. Noto Sans/Serif Devanagari (OFL-1.1) will be added in
-M7 (ADR 0002).
+  Font                                  Licence   Licence text
+  ------------------------------------- --------- -----------------------------------------------
+  Noto Serif Devanagari Regular (2022)  OFL-1.1   `frontend/public/fonts/NotoSerifDevanagari-OFL.txt`
+
+Source: https://github.com/notofonts/devanagari. Bundled because the
+macOS Devanagari fonts lack U+1CDA (ADR 0002). The font is distributed
+alongside the program under its own licence, not relicensed.
