@@ -499,7 +499,9 @@ a_gnimii'Le pu_rohi'taM ya_j~nasya' de_vamR^i_tvija'm
 -   **Anusvara, visarga and chandrabindu.** Both `aM'` and `a'M` are
     accepted. The output uses one documented order of accent and
     anusvara/visarga/chandrabindu, chosen in Phase 3 by rendering tests
-    with the bundled fonts.
+    with the bundled fonts. The candidate is accent first, then
+    anusvara/chandrabindu (भूमि॑ं), which is the order Baraha produces
+    (`testdata/vedic/baraha/`).
 -   **Longest match.** `'''` is read before `'`. A run of apostrophes
     must have length 1 or 3. Any other length (`''`, `''''`) is not
     converted to marks: it is passed through unchanged and the segment
@@ -520,6 +522,11 @@ a_gnimii'Le pu_rohi'taM ya_j~nasya' de_vamR^i_tvija'm
 -   **Distinct characters.** Double svarita is always U+1CDA. It must
     never be produced as two U+0951 marks, and two U+0951 marks must
     never be shown or reported as a double svarita.
+-   **Baraha's double svarita.** Baraha's `$` produces U+0953 DEVANAGARI
+    GRAVE ACCENT, which standard fonts draw as a single slanted stroke.
+    Paramaakshara never produces U+0953 for the double svarita. Existing
+    Baraha text keeps U+0953 until the user converts it with Clean up
+    text (§6.8).
 
 ### 5.4 Conversion granularity
 
@@ -759,6 +766,38 @@ correctly stored but displayed incorrectly by a font or browser.
 The project must maintain verified sample passages and screenshot
 references for supported font/browser combinations (§13.6). A text
 comparison alone is not enough to validate visual placement of accents.
+
+### 6.8 Text from other tools
+
+Text from other tools may use look-alike characters. For example, a
+Baraha source typed with `:` instead of `H` produces an ASCII colon
+(U+003A) instead of the visarga ः (U+0903). Such text looks right but is
+not converted, searched or shaped as a visarga.
+
+-   Pasted and opened text is always kept exactly as it is (§6.6).
+-   The output pane provides an explicit **Clean up text** command. In
+    version 1 it offers these fixes, each of which the user can select
+    or deselect:
+
+  Fix                  From                           To
+  -------------------- ------------------------------ ---------------------------
+  Visarga              ASCII `:` (U+003A) directly    ः U+0903 (Devanagari),
+                       after a Devanagari or Kannada  ಃ U+0C83 (Kannada)
+                       letter, vowel sign or Vedic
+                       mark
+  Double svarita       U+0953 (Baraha `$`)            U+1CDA
+  Sanskrit e/o         Devanagari short e/o:          Long e/o:
+                       ॆ U+0946, ॊ U+094A,             े U+0947, ो U+094B,
+                       ऎ U+090E, ऒ U+0912              ए U+090F, ओ U+0913
+
+-   Tamil has no visarga sign; Tamil text is left to the Tamil
+    convention (§7.3).
+-   The command shows the number of changes per fix and a preview before
+    applying them, applies to the selection or the whole document, and
+    is a single undoable operation. Changed segments are detached
+    (§4.3).
+-   Further fixes are added only when observed in real samples, each
+    with a test case in `testdata/`.
 
 ------------------------------------------------------------------------
 
