@@ -58,6 +58,7 @@ export interface Counts {
   detached: number;
   stale: number;
   outputOnly: number;
+  errors: number;
 }
 
 /** Marks transactions that only mirror the model into a pane. */
@@ -82,7 +83,11 @@ class Marker extends GutterMarker {
     super();
   }
   override eq(other: GutterMarker): boolean {
-    return other instanceof Marker && other.text === this.text;
+    return (
+      other instanceof Marker &&
+      other.text === this.text &&
+      other.title === this.title
+    );
   }
   override toDOM(): Node {
     const span = document.createElement("span");
@@ -108,6 +113,10 @@ const markers: Partial<Record<Kind, Marker>> = {
   ),
 };
 
+function errorMarker(problems: string[]): Marker {
+  return new Marker("⚠", `Cannot convert: ${problems.join("; ")}`, "seg-error");
+}
+
 export interface Options {
   sourceParent: HTMLElement;
   outputParent: HTMLElement;
@@ -117,6 +126,8 @@ export interface Options {
   onChange?: (counts: Counts) => void;
   /** Asked before regeneration replaces manual output. */
   confirm?: (message: string) => boolean;
+  /** Conversion problems in a source line, shown as ⚠ (§4.4). */
+  issues?: (source: string) => string[];
 }
 
 export class EditorDocument {
@@ -126,6 +137,7 @@ export class EditorDocument {
   private readonly ctx: Context;
   private readonly onChange: (counts: Counts) => void;
   private readonly confirm: (message: string) => boolean;
+  private readonly issues: (source: string) => string[];
   private lastFocused: Pane = "source";
   private refreshQueued = false;
 
@@ -134,6 +146,7 @@ export class EditorDocument {
     this.segments = opts.segments ?? [];
     this.onChange = opts.onChange ?? (() => {});
     this.confirm = opts.confirm ?? (() => true);
+    this.issues = opts.issues ?? (() => []);
     this.source = new EditorView({
       parent: opts.sourceParent,
       state: EditorState.create({
@@ -290,7 +303,8 @@ export class EditorDocument {
           : s.source === null
             ? []
             : s.source.split("\n");
-      const m = markers[kind(s)];
+      const problems = s.linked ? this.issues(s.source!) : [];
+      const m = problems.length > 0 ? errorMarker(problems) : markers[kind(s)];
       for (const line of lines) {
         if (m) b.add(pos, pos, m);
         pos += line.length + 1;
@@ -308,8 +322,10 @@ export class EditorDocument {
       detached: 0,
       stale: 0,
       outputOnly: 0,
+      errors: 0,
     };
     for (const s of this.segments) {
+      if (s.linked && this.issues(s.source!).length > 0) c.errors++;
       const k = kind(s);
       if (k === "detached") c.detached++;
       else if (k === "stale") c.stale++;

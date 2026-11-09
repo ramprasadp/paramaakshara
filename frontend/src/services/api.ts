@@ -23,6 +23,7 @@ export interface ClientConfig {
     output_script: string;
     tamil_convention: string;
     vedic_tradition: string;
+    digits: string;
   };
 }
 

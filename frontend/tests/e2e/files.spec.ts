@@ -83,7 +83,7 @@ test("without signing in, files are unavailable and the editor still works", asy
   await expect(page.locator("#banner")).toContainText("Not signed in");
   await expect(page.locator("#file-save")).toBeDisabled();
   await typeSource(page, "aa");
-  expect((await texts(page)).output).toBe("aa");
+  expect((await texts(page)).output).toBe("आ");
 });
 
 test("save as a project, then reopen with edit markers", async ({
@@ -141,7 +141,7 @@ test("⌘S saves to the same file; plain text warns that ITRANS is dropped", asy
   browserName,
 }) => {
   await signIn(page);
-  await typeSource(page, "one");
+  await typeSource(page, "eka");
   const name = `${browserName}-plain.txt`;
   await saveAs(page, name);
   await expect(page.locator("dialog[open]")).toContainText(
@@ -149,16 +149,16 @@ test("⌘S saves to the same file; plain text warns that ITRANS is dropped", asy
   );
   await button(page, "Save").click();
   await expect(page.locator("#docname")).toHaveText(name);
-  expect(readFileSync(join(DOCS, name), "utf8")).toBe("one");
+  expect(readFileSync(join(DOCS, name), "utf8")).toBe("एक");
 
-  await typeSource(page, " two");
+  await typeSource(page, " dvi");
   await page.keyboard.press("ControlOrMeta+s");
   await expect(page.locator("dialog[open]")).toContainText(
     "ITRANS input is not saved",
   );
   await button(page, "Save").click();
   await expect(page.locator("#save-state")).toHaveText("Saved");
-  expect(readFileSync(join(DOCS, name), "utf8")).toBe("one two");
+  expect(readFileSync(join(DOCS, name), "utf8")).toBe("एक द्वि");
 });
 
 test("a file changed on disk is not overwritten without asking", async ({
@@ -237,7 +237,10 @@ test("unsaved work is offered for recovery after the page is closed", async ({
     for (const s of snapshots)
       await fetch(`/api/recovery/${s.key}`, { method: "DELETE" });
   });
-  const marker = `recover ${browserName}`;
+  // ITRANS that differs per browser, so this test only restores its own work.
+  const marker = { chromium: "punaH", firefox: "punar", webkit: "punA" }[
+    browserName
+  ]!;
   await typeSource(page, marker);
   // The test daemon's recovery interval is 1 s.
   await expect.poll(() => snapshotCount(page)).toBe(1);
@@ -248,6 +251,9 @@ test("unsaved work is offered for recovery after the page is closed", async ({
   await expect(next.locator("dialog[open]")).toContainText("Untitled");
   await expect(next.locator("dialog[open]")).toContainText("was not saved");
   await button(next, "Restore").click();
-  await expectTexts(next, { source: marker, output: marker });
+  await expectTexts(next, {
+    source: marker,
+    output: { punaH: "पुनः", punar: "पुनर्", punA: "पुना" }[marker]!,
+  });
   await expect(next.locator("#save-state")).toHaveText("Unsaved changes");
 });

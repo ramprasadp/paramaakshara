@@ -3,6 +3,7 @@
 // Opening, saving, importing, exporting and recovering documents
 // (TECH_SPEC §10).
 
+import { CONVERTER_VERSION } from "./conversion/itrans";
 import type { EditorDocument } from "./editor/document";
 import {
   FormatError,
@@ -19,9 +20,6 @@ import { fromProject } from "./model/project";
 import { outputText, type Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
 import { alertBox, closeDialog, confirmBox, el, show } from "./ui/dialog";
-
-/** Until the ITRANS converter (M6), output is a copy of the input. */
-export const CONVERTER_VERSION = "placeholder/0";
 
 interface Current {
   name: string;

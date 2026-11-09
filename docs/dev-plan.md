@@ -120,6 +120,13 @@ in `frontend/.e2e/`). Go minimum raised to 1.25.
 
 **Done when:** the corpus passes, including the Puruṣa Sūkta sample.
 
+**Status:** done, except the sanskritdocuments.org corpus: the site
+refuses automated downloads, so its `.itx` and Devanagari files must be
+saved by hand into `testdata/itrans/`. Converter: own, table-driven
+(ADR 0003). Both Baraha samples pass. ⚠ markers for unconvertible input.
+The Clean up text logic was written early (`src/conversion/cleanup.ts`);
+M7 adds the command around it.
+
 ### M7 --- Vedic (Phase 3)
 
 -   Symbol catalogue JSON, palette (§6.4).

@@ -621,7 +621,11 @@ same test corpus.
   sanscript`                                   browser, data-driven
                                                schemes, supports ITRANS,
                                                Devanagari, Kannada, Tamil.
-                                               **Provisional choice.**
+                                               **Evaluated and not used**
+                                               (ADR 0003): inserts ZWJ
+                                               for `{}`, has no `'''`
+                                               or accent rules, cannot
+                                               report errors.
   Aksharamukha                    AGPL-3.0     Python; not usable in the
                                                browser. May be used
                                                offline as a test oracle.
@@ -1805,9 +1809,6 @@ text.
   `@codemirror/commands`               MIT            Default keymap, history
                                                       (undo/redo)
   `@codemirror/search`                 MIT            Find and replace
-  `@indic-transliteration/sanscript`   MIT (verify)   ITRANS and script
-                                                      conversion (provisional,
-                                                      §5.6)
 
 Not used: UI frameworks (React, Vue and similar), CDNs, analytics.
 
@@ -1939,10 +1940,9 @@ changed.
 
   \#   Decision                Status        Outcome
   ---- ----------------------- ------------- ------------------------------------
-  1    Transliteration engine  Provisional   `@indic-transliteration/sanscript`,
-                                             confirmed by the Phase 2 corpus;
-                                             fallback is a project-owned
-                                             table-driven converter (§5.6).
+  1    Transliteration engine  Decided       Project-owned table-driven
+                                             converter (ADR 0003,
+                                             `docs/itrans-mappings.md`).
   2    Where conversion runs   Decided       Frontend (TypeScript). The daemon
                                              does no conversion.
   3    Editor component        Decided       CodeMirror 6 (§8.1, ADR 0001).

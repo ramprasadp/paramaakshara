@@ -66,6 +66,9 @@ pass.
 -   **Vedic accent input** (§5.3): `_` anudātta U+0952, `'` svarita
     U+0951, `'''` double svarita U+1CDA. Never emit U+0953 for the double
     svarita, and never treat two U+0951 as a double svarita.
+-   **Escape marks in code.** In source code (not tests), write combining
+    marks, Vedic signs and ZWJ/ZWNJ as `\uXXXX` escapes; a bare mark in a
+    string is unreadable and easily corrupted.
 -   **Accent order:** anusvara, visarga or chandrabindu comes first, then
     the accent (भूमिं॑). The reverse renders as a dotted circle (ADR 0002).
 -   **Fonts:** Noto Devanagari is the default because macOS fonts lack

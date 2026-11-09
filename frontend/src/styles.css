@@ -329,3 +329,11 @@ dialog input.filter {
 .error {
   color: var(--stale);
 }
+
+.seg-error {
+  color: var(--stale);
+}
+
+#save-state {
+  margin-left: 12px;
+}
