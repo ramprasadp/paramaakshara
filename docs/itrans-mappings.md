@@ -167,3 +167,33 @@ the editor shows as ⚠ (TECH_SPEC §4.4):
 
 -   Nukta letters only as listed; no Bengali/other-script ITRANS letters.
 -   ITRANS environment switches (`#sanskrit`, `##`) and comments.
+
+## Unicode → ITRANS
+
+Import Unicode (TECH_SPEC §6.9) writes Unicode text back in ITRANS
+(`frontend/src/conversion/unicode.ts`). Each character gets the one
+spelling below, chosen from the table above; Kannada and Tamil are first
+brought to Devanagari.
+
+  Unicode                                       ITRANS
+  --------------------------------------------- -------------------------------
+  अ आ इ ई उ ऊ                                   `a A i I u U`
+  ऋ ॠ ऌ ॡ                                       `R^i R^I L^i L^I`
+  ऎ ए ऐ ऒ ओ औ                                   `e E ai o O au`
+  consonants                                    first spelling in the table
+                                                (`Ch` छ, `~n` ञ, `v` व, `L` ळ)
+  क़ ख़ ग़ ज़ फ़ ड़ ढ़ (letter + U+093C)                `q K G z f .D .Dh`
+  ं ः ँ ऽ ॐ । ॥ ꣳ ꣴ                              `M H .N .a OM | || (gm) (gg)`
+  ॒ ॑ ᳚                                          `_ ' '''`
+  ०–९                                           `0`–`9` (kept with ASCII digits)
+
+-   An accent is written before an anusvara, visarga or chandrabindu
+    (`bhUmi'M`), as typed; both orders give भूमिं॑.
+-   `{}` separates two spellings that would read as one: `ka{}i` कइ,
+    `k{}ha` क्ह, `|{}|` ।।, `ka'{}'` क॑॑ (two svaritas, not ''').
+    `kSha` and `j~na` need none, since क्ष and ज्ञ are the same letters.
+-   `.h` ends a consonant before an independent vowel: `k.ha` क्अ.
+-   Anything else (U+0953, ऩ from Tamil ன, ZWJ) is kept as it is.
+-   Precomposed nukta letters (U+0958–U+095E) are read like letter +
+    U+093C, so they come back decomposed; such lines are marked ⚠, as
+    are lines in Baraha's accent order (भूमि॑ं).

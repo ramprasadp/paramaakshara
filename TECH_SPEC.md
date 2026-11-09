@@ -191,7 +191,8 @@ Initial toolbar actions:
 -   Input scheme selector.
 -   Output script selector.
 -   Vedic symbol palette.
--   Regenerate line / Regenerate all.
+-   Regenerate line / Regenerate all (icon buttons).
+-   Import Unicode (icon button in the ITRANS input header, §6.9).
 -   Undo and redo.
 -   Find and replace.
 -   Open (document browser for configured folders) and Import (any file
@@ -864,6 +865,30 @@ not converted, searched or shaped as a visarga.
     (§4.3).
 -   Further fixes are added only when observed in real samples, each
     with a test case in `testdata/`.
+
+### 6.9 Importing Unicode text
+
+Text that already exists in Unicode (Devanagari, Kannada or Tamil) can
+be brought into the input pane as ITRANS, so it is edited and converted
+like typed text.
+
+-   **Import Unicode** opens a dialog where the text is pasted. Unicode
+    text pasted directly into the ITRANS pane (more Indic characters
+    than Latin letters) opens the same dialog, which also offers to
+    paste it unchanged.
+-   Kannada and Tamil are first brought to Devanagari (§7). Each line is
+    rewritten in ITRANS with the spellings in `docs/itrans-mappings.md`
+    ("Unicode → ITRANS"); `{}` or `.h` is written where two spellings
+    would otherwise read as something else (`ka{}i` कइ, `k.ha` क्अ).
+-   Characters with no ITRANS spelling (for example U+0953, or ऩ from
+    Tamil ன) are kept as they are and listed; the converter passes them
+    through.
+-   Nothing changes silently (§6.6): the dialog converts each line's
+    ITRANS back and marks with ⚠ every line that does not give back the
+    pasted text exactly in Devanagari, such as Baraha's accent before
+    anusvara (§5.3) or precomposed nukta letters.
+-   The ITRANS is inserted at the input cursor as one undoable edit; the
+    output follows it as linked segments in the current output script.
 
 ------------------------------------------------------------------------
 

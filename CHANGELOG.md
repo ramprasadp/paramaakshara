@@ -4,6 +4,12 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+-   Import Unicode: paste Devanagari, Kannada or Tamil text (icon in the
+    ITRANS input header, or paste into the ITRANS pane); it is rewritten
+    in ITRANS and inserted at the cursor. Lines that would not convert
+    back exactly are marked ⚠ before inserting.
+-   Regenerate line and Regenerate all are icon buttons.
+
 -   Short and long e/o: `e` and `o` are short (ऎ ॆ ऒ ॊ / ಎ ೆ ಒ ೊ /
     எ ெ ஒ ொ) and `E` and `O` are long (ए े ओ ो / ಏ ೇ ಓ ೋ / ஏ ே ஓ ோ),
     as in Baraha.

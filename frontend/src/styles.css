@@ -134,6 +134,37 @@ button[data-insert] {
   line-height: 1.6;
 }
 
+button.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 6px;
+}
+
+button.icon svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+button.icon .glyph {
+  font-family: var(--indic-font);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.pane h2 button.icon {
+  height: 22px;
+  margin-left: 6px;
+  vertical-align: middle;
+  font-weight: normal;
+  color: var(--fg);
+}
+
 .panes {
   flex: 1;
   display: grid;
@@ -481,7 +512,8 @@ button.symbol.missing .code {
   color: var(--fg);
 }
 
-.baraha-input {
+.baraha-input,
+.unicode-input {
   width: 100%;
   font:
     14px/1.5 ui-monospace,
@@ -493,13 +525,20 @@ button.symbol.missing .code {
   color: var(--fg);
 }
 
-.baraha-preview {
+.unicode-input {
+  font-family: var(--indic-font);
+  font-size: 18px;
+}
+
+.baraha-preview,
+.unicode-preview {
   margin-top: 8px;
   max-height: 30vh;
   overflow: auto;
 }
 
-.baraha-itrans {
+.baraha-itrans,
+.unicode-itrans {
   font:
     12px ui-monospace,
     monospace;
@@ -507,13 +546,15 @@ button.symbol.missing .code {
   margin-top: 6px;
 }
 
-.baraha-output {
+.baraha-output,
+.unicode-output {
   font-family: var(--indic-font);
   font-size: 18px;
   line-height: 1.8;
 }
 
-dialog:has(.baraha-input) {
+dialog:has(.baraha-input),
+dialog:has(.unicode-input) {
   width: min(760px, calc(100vw - 32px));
 }
 

@@ -149,8 +149,8 @@ const TOKENS = [
   "{}",
 ].sort((a, b) => b.length - a.length);
 
-/** The longest token at position i, or null. */
-function match(line: string, i: number): string | null {
+/** The longest ITRANS token at position i, or null. */
+export function tokenAt(line: string, i: number): string | null {
   for (const t of TOKENS) if (line.startsWith(t, i)) return t;
   return null;
 }
@@ -206,7 +206,7 @@ export function transliterate(line: string, opts: Options = {}): Result {
       continue;
     }
 
-    const tok = match(line, i);
+    const tok = tokenAt(line, i);
     if (tok === null) {
       closeConsonant();
       vowel = false;

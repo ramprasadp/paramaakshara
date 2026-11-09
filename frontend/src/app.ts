@@ -11,6 +11,7 @@ import type { Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
 import { looksLikeBaraha } from "./conversion/baraha";
 import { barahaDialog } from "./ui/baraha";
+import { looksLikeUnicode, unicodeDialog } from "./ui/unicode";
 import { cleanupCommand } from "./ui/cleanup";
 import { alertBox, confirmBox, el, show } from "./ui/dialog";
 import { Palette } from "./ui/palette";
@@ -141,7 +142,8 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     showBanner(e);
   }
 
-  const convert = converter(config?.editor.digits !== "ascii");
+  const devanagariDigits = config?.editor.digits !== "ascii";
+  const convert = converter(devanagariDigits);
   const scriptSelect = byId<HTMLSelectElement>("script-select");
   const configured = config?.editor.output_script;
   let script: Script =
@@ -159,6 +161,14 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     byId("converter").textContent =
       `ITRANS 5.3 → ${scriptSelect.selectedOptions[0]?.textContent ?? script}`;
   };
+  const unicodeImport = (pasted?: string) =>
+    unicodeDialog(
+      doc,
+      (line) => convert(line, script),
+      script,
+      { devanagariDigits },
+      pasted,
+    );
   const doc = new EditorDocument({
     sourceParent: byId("source"),
     outputParent: byId("output"),
@@ -172,8 +182,13 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     },
     issues: (s) => convert(s, script).issues,
     // Baraha text pasted into the ITRANS pane would convert wrongly
-    // (q is a letter in ITRANS), so offer to rewrite it first.
+    // (q is a letter in ITRANS), so offer to rewrite it first; likewise
+    // Unicode text, which would only pass through.
     onSourcePaste: (text) => {
+      if (looksLikeUnicode(text)) {
+        void unicodeImport(text);
+        return true;
+      }
       if (!looksLikeBaraha(text)) return false;
       void barahaDialog(doc, (line) => convert(line, script), text);
       return true;
@@ -211,6 +226,7 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     void exportPdf(lines, files?.documentName() ?? "Untitled");
   });
   byId("cleanup").addEventListener("click", () => void cleanupCommand(doc));
+  byId("import-unicode").addEventListener("click", () => void unicodeImport());
   byId("baraha").addEventListener(
     "click",
     () => void barahaDialog(doc, (line) => convert(line, script)),
