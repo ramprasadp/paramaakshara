@@ -197,7 +197,8 @@ func unknown(code []byte) unit {
 //     when accents were drawn in between;
 //   - a pre sign moves after the consonant that ends the next cluster,
 //     and after a subjoined sign of that cluster;
-//   - a reph moves to the start of the cluster before it;
+//   - a reph moves to the start of the cluster, or the independent
+//     vowel, before it;
 //   - vowel signs, anusvara and visarga move before accents on the same
 //     syllable (ADR 0002), and two signs listed in compose are joined;
 //   - an accent drawn after a space belongs to the syllable before the
@@ -268,7 +269,10 @@ func reorder(in []unit, compose map[[2]string]string) []unit {
 			out = insert(out, beforeAccents(out), u)
 		case None:
 		default:
-			if u.kind == Vowel || u.kind == Space || u.kind == Punct {
+			switch u.kind {
+			case Vowel: // a reph drawn after it goes before it (र्ऋ)
+				cluster = len(out)
+			case Space, Punct:
 				cluster = -1
 			}
 			out = append(out, u)

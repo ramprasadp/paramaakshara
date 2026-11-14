@@ -659,10 +659,17 @@ var shreeSan0962Page140 = []pageLine{
 //   - page 68: क्व, not क्क (क्वचित्, क्वाहम् on pages 38, 68, 73);
 //   - page 19: वध्र्य॒श्वाय॑, not वघ्र्य (52 is ध् throughout);
 //   - page 174: the hyphen at the line end, as printed.
+//
+// ई॒श्व॒रीं and वरनिर्ऋतिनामा were checked against the rendered pages: ई is
+// इ with the reph glyph, and a reph after ऋ goes before it; ईं॑ (page 13,
+// य ईं॑ शृ॒णोत्यु॒क्तम्) is इ with the reph-and-anusvara glyph.
 var shreeSan0962Words = []struct {
 	page        int
 	codes, want string
 }{
+	{15, "F2 EA 85 C4 22 85 5A 72 7A", "ई॒श्व॒रीं"},
+	{181, "5C 22 5A 7B 53 22 68 EA A1 7B 4F 22 53 22 70 58 22 70", "वरनिर्ऋतिनामा"},
+	{13, "F2 7C F1", "ईं॑"},
 	{57, "53 22 25 4E 70 70 7A", "नृणां"},
 	{104, "4F 22 50 22 70 26 54 59 22 43 59 22 7C", "तथाऽप्यर्घ्यं"},
 	{92, "5C 22 70 49 46 3E 7B 5F 22", "वाञ्छसि"},
@@ -857,6 +864,7 @@ func TestReorder(t *testing.T) {
 		{"accent after a danda stays", []unit{u(Punct, "।"), u(Space, " "), u(Accent, "॒")}, "। ॒"},
 		{"stem after an accent", []unit{u(Pre, "ि"), u(Half, "व्"), u(Accent, "॒"), u(Stem, "")}, "वि॒"},
 		{"sign before the accent", []unit{u(Consonant, "ष"), u(Accent, "॒"), u(Sign, "ा")}, "षा॒"},
+		{"reph before an independent vowel", []unit{u(Consonant, "न"), u(Vowel, "ऋ"), u(Reph, "र्"), u(Consonant, "त")}, "नर्ऋत"},
 		{"pre sign after a subjoined ra", []unit{u(Pre, "ि"), u(Consonant, "प"), u(Subjoined, "्र")}, "प्रि"},
 		{"compose across an accent", []unit{u(Consonant, "त"), u(Sign, "ा"), u(Accent, "॒"), u(Sign, "े")}, "तो॒"},
 	} {

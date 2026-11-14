@@ -40,6 +40,7 @@
     { "codes": "ED", "kind": "vowel", "text": "\u0909", "note": "u" },
     { "codes": "EF", "kind": "vowel", "text": "\u090f", "note": "e" },
     { "codes": "F2", "kind": "vowel", "text": "\u0907", "note": "i" },
+    { "codes": "F2 EA", "kind": "vowel", "text": "\u0908", "note": "ii: i with the reph-shaped hook (page 15: Ishvari)" },
     { "codes": "EF 75", "kind": "vowel", "text": "\u0910", "note": "ai: e + e sign" },
     { "codes": "EE", "kind": "vowel", "text": "\u090a", "note": "uu; followed by the hook A1" },
 
@@ -218,6 +219,7 @@
     { "codes": "79", "kind": "modifier", "text": "\u0901", "note": "candrabindu" },
     { "codes": "7A", "kind": "modifier", "text": "\u0902", "note": "anusvara" },
     { "codes": "EB", "kind": "modifier", "text": "\u0902", "note": "anusvara, placed for a consonant with a stem at the right" },
+    { "codes": "F2 7C", "units": [ { "kind": "vowel", "text": "\u0908" }, { "kind": "modifier", "text": "\u0902" } ], "note": "ii with anusvara: i with the reph-and-anusvara glyph (RV 10.125.4: ya IM shRuNoti)" },
     { "codes": "7C", "units": [ { "kind": "reph", "text": "\u0930\u094d" }, { "kind": "modifier", "text": "\u0902" } ], "note": "reph with anusvara" },
     { "codes": "D7 6A", "units": [ { "kind": "consonant", "text": "\u0915" }, { "kind": "sign", "text": "\u0962" } ], "note": "ka with the vocalic l sign (page 176: kLpta)" },
 
