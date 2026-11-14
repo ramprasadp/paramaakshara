@@ -293,19 +293,31 @@ type Line struct {
 
 // Lines groups glyphs into lines in content-stream order. A glyph starts
 // a new line when its baseline is more than half the font size away from
-// the current line's; a horizontal gap of more than a quarter of the font
-// size becomes a gap run.
+// the current line's; a horizontal gap of more than 0.15 of the font size
+// (headings set word by word have gaps of about 0.25) becomes a gap run,
+// unless a space glyph is next to it or the glyph is a zero-width mark.
+// A glyph drawn again over an
+// identical glyph of the line (text overprinted to look bold) is dropped.
 func Lines(glyphs []Glyph) []Line {
 	var lines []Line
 	var prevX1, size float64
+	prevSpace := false
 	for _, g := range glyphs {
 		sz := math.Max(g.Size, 1)
 		n := len(lines)
+		if n > 0 && overprint(&lines[n-1], g) {
+			continue
+		}
+		space := len(g.Code) == 1 && g.Code[0] == ' '
+		mark := g.X1-g.X0 <= 0.01 // zero-width: an accent or vowel sign
 		if n == 0 || math.Abs(g.Y-lines[n-1].Y) > sz/2 {
 			lines = append(lines, Line{Y: g.Y})
 			n++
-		} else if g.X0-prevX1 > math.Max(sz, size)/4 {
+		} else if g.X0-prevX1 > math.Max(sz, size)*0.15 && !space && !prevSpace && !mark {
 			lines[n-1].Runs = append(lines[n-1].Runs, Run{})
+		}
+		if !mark {
+			prevSpace = space
 		}
 		ln := &lines[n-1]
 		if k := len(ln.Runs); k > 0 && sameFont(ln.Runs[k-1].Font, g.Font) {
@@ -317,6 +329,24 @@ func Lines(glyphs []Glyph) []Line {
 		prevX1, size = g.X1, sz
 	}
 	return lines
+}
+
+// overprint reports whether ln already has g: the same code in the same
+// font within a tenth of the font size (bold imitations shift each copy
+// by about half a point).
+func overprint(ln *Line, g Glyph) bool {
+	for _, r := range ln.Runs {
+		if !sameFont(r.Font, g.Font) {
+			continue
+		}
+		for _, h := range r.Glyphs {
+			tol := g.Size / 10
+			if bytes.Equal(h.Code, g.Code) && math.Abs(h.X0-g.X0) < tol && math.Abs(h.Y-g.Y) < tol {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func sameFont(a, b *Font) bool { return a != nil && b != nil && a.Name == b.Name }

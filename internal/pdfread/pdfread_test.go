@@ -143,6 +143,16 @@ BT /F1 10 Tf 1 0 0 1 70 600 Tm (c) Tj ET`)
 	}
 }
 
+func TestOverprintDropped(t *testing.T) {
+	// The year drawn three times, shifted by half a point to look bold,
+	// as on the title page of mantrastotra.pdf.
+	lines := linesOf(t, `BT /F2 10 Tf 1 0 0 1 72 700 Tm (2013) Tj 1 0 0 1 72.5 700 Tm (2013) Tj
+1 0 0 1 72 700.5 Tm (2013) Tj 1 0 0 1 92 700 Tm (13) Tj ET`)
+	if len(lines) != 1 || len(lines[0].Runs) != 1 || string(lines[0].Runs[0].Code) != "201313" {
+		t.Errorf("got %+v", runs(lines[0]))
+	}
+}
+
 func TestInlineImageSkipped(t *testing.T) {
 	lines := linesOf(t, "BI /W 1 /H 1 ID \x00(EI)\xff EI\nBT /F1 10 Tf (ok) Tj ET")
 	if len(lines) != 1 || string(lines[0].Runs[0].Code) != "ok" {

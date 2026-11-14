@@ -1,6 +1,7 @@
 {
   "font": "SHREE-SAN-0962",
-  "source": "mantrastotra.pdf pages 7, 22, 122, 140, 141 and 276 and a sheet of words from other pages, paired with readings checked by the user and against the rendered pages",
+  "also": ["SHREE-SAN-0960", "SHREE-SAN-0962E", "SHREE-SAN-0964", "SHREE-SAN-0964E"],
+  "source": "mantrastotra.pdf pages 7, 22, 122, 140, 141 and 276 and sheets of words from other pages (including the heading fonts listed under also), paired with readings checked by the user and against the rendered pages",
   "compose": [
     { "first": "\u093e", "second": "\u0947", "text": "\u094b", "note": "aa + e sign = o sign" },
     { "first": "\u093e", "second": "\u0948", "text": "\u094c", "note": "aa + ai sign = au sign" }
@@ -35,6 +36,7 @@
     { "codes": "68", "kind": "vowel", "text": "\u090b", "note": "vocalic r; followed by the hook A1" },
     { "codes": "EC", "kind": "vowel", "text": "\u0905", "note": "a" },
     { "codes": "EC 70", "kind": "vowel", "text": "\u0906", "note": "aa: a + aa sign" },
+    { "codes": "EC 70 75", "kind": "vowel", "text": "\u0913", "note": "o: a + aa sign + e sign" },
     { "codes": "ED", "kind": "vowel", "text": "\u0909", "note": "u" },
     { "codes": "EF", "kind": "vowel", "text": "\u090f", "note": "e" },
     { "codes": "F2", "kind": "vowel", "text": "\u0907", "note": "i" },

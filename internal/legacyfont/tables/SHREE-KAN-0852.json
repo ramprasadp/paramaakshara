@@ -1,0 +1,7 @@
+{
+  "font": "SHREE-KAN-0852",
+  "source": "mantrastotra.pdf page 2 (its only use), checked against the rendered page",
+  "glyphs": [
+    { "codes": "3C", "kind": "punct", "text": "₹", "note": "rupee sign" }
+  ]
+}

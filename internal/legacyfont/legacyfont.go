@@ -69,6 +69,7 @@ type Compose struct {
 // Table is the mapping for one font.
 type Table struct {
 	Font    string    `json:"font"`
+	Also    []string  `json:"also,omitempty"` // fonts with the same encoding
 	Source  string    `json:"source"`
 	Glyphs  []Entry   `json:"glyphs"`
 	Compose []Compose `json:"compose,omitempty"`
@@ -77,7 +78,8 @@ type Table struct {
 	compose map[[2]string]string
 }
 
-// Tables loads the built-in tables, keyed by font name.
+// Tables loads the built-in tables, keyed by font name, including the
+// names a table lists under "also".
 func Tables() (map[string]*Table, error) {
 	files, err := tableFiles.ReadDir("tables")
 	if err != nil {
@@ -93,7 +95,12 @@ func Tables() (map[string]*Table, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", f.Name(), err)
 		}
-		out[t.Font] = t
+		for _, name := range append([]string{t.Font}, t.Also...) {
+			if _, dup := out[name]; dup {
+				return nil, fmt.Errorf("%s: font %s has two tables", f.Name(), name)
+			}
+			out[name] = t
+		}
 	}
 	return out, nil
 }

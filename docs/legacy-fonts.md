@@ -66,7 +66,20 @@ half form before it even when accents were drawn in between, and
 `compose` joins two signs drawn separately (aa + e = o), also across an
 accent.
 
-Tables so far: `SHREE-SAN-0962`, covering pages 7, 122, 140, 141 and 276, lines 2-12
+A table lists under `also` other fonts that share its encoding: the
+Shree-Lipi heading fonts `SHREE-SAN-0964` and `SHREE-SAN-0960` (and the
+companions `0962E`, `0964E`) differ from `SHREE-SAN-0962` only in
+typeface. Fonts without a table are written as Windows-1252, which is
+right for the Latin fonts (`SHREE-ENG-0010`, Arial).
+
+`pdfread.Lines` drops a glyph drawn again over an identical one (bold
+imitated by overprinting, as on the title page) and treats a gap wider
+than 0.15 of the font size as a word break, since headings are often
+placed word by word without space characters.
+
+Tables so far: `SHREE-SAN-0962` (also the heading fonts, checked with a
+sheet of 72 heading words) and `SHREE-KAN-0852` (the rupee sign),
+covering pages 7, 122, 140, 141 and 276, lines 2-12
 of page 22 and one word for each remaining code of mantrastotra.pdf (the
 tests in `internal/legacyfont`). `legacyfont find -code XX` lists the
 words containing a code, with their position on the page, for picking
