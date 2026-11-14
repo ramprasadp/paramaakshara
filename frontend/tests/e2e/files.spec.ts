@@ -195,7 +195,10 @@ test("Export all writes the ITRANS, Unicode and PDF files", async ({
     await page.locator("dialog input.path").fill(base);
     await button(page, "Export").click();
   };
-  await exportAll();
+  // Enter in the name field presses Export, not Cancel.
+  await page.click("#export-all");
+  await page.locator("dialog input.path").fill(base);
+  await page.locator("dialog input.path").press("Enter");
   await expect(page.locator("dialog[open]")).toContainText("Exported", {
     timeout: 30_000,
   });

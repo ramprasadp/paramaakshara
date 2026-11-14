@@ -40,14 +40,21 @@ export function show<T>(
     form.append(typeof part === "string" ? el("p", {}, part) : part);
   const row = el("div", { className: "dialog-buttons" });
   let result: T | null = null;
+  // Only the primary button submits the form, so Enter in a field
+  // presses it; the others close the dialog themselves. (Enter presses
+  // the first submit button, which would otherwise be Cancel.)
   buttons.forEach((b) => {
     const button = el(
       "button",
-      { type: "submit", className: b.primary ? "primary" : "" },
+      {
+        type: b.primary ? "submit" : "button",
+        className: b.primary ? "primary" : "",
+      },
       b.label,
     );
     button.addEventListener("click", () => {
       result = b.value;
+      if (!b.primary) d.close();
     });
     row.append(button);
   });

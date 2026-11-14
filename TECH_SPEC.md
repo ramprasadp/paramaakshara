@@ -1533,7 +1533,7 @@ The current document's name, location and saved state do not change.
 
 The daemon makes the PDF by running a Chromium-based browser installed
 on the computer (Chrome, Edge, Chromium or Brave) headless, with a
-throwaway profile, on a page that holds the text and the bundled fonts
+throwaway profile that never touches the system keychain, on a page that holds the text and the bundled fonts
 and loads nothing else (ADR 0004, §18 decision 15). The user may use any
 browser for the editor itself. `pdf.browser` names the executable;
 otherwise the usual install locations are searched. One PDF is made at a

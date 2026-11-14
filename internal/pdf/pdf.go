@@ -174,6 +174,10 @@ func (m *Maker) Make(ctx context.Context, r Request) ([]byte, error) {
 		"--disable-sync",
 		"--disable-background-networking",
 		"--user-data-dir="+filepath.Join(dir, "profile"),
+		// The throwaway profile stores no passwords: without these, macOS
+		// asks for a keychain for it on every export.
+		"--use-mock-keychain",
+		"--password-store=basic",
 		"--no-pdf-header-footer",
 		"--print-to-pdf="+out,
 		fileURL(page),
