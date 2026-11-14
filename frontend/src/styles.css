@@ -611,3 +611,28 @@ dialog:has(.unicode-input) {
     break-inside: avoid;
   }
 }
+
+/* Legacy PDF import (src/ui/legacy.ts). */
+.legacy-preview {
+  margin-top: 8px;
+  max-height: 40vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.legacy-line {
+  font-family: var(--indic-font);
+  font-size: 18px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+dialog input.legacy-page {
+  width: 5em;
+}
+
+dialog:has(.legacy-preview) {
+  width: min(760px, calc(100vw - 32px));
+}

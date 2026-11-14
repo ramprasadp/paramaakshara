@@ -160,6 +160,25 @@ func TestInlineImageSkipped(t *testing.T) {
 	}
 }
 
+func TestDeepNestingRejected(t *testing.T) {
+	deep := bytes.Repeat([]byte("["), 100000)
+	if _, err := (&lexer{b: deep}).object(); err != errDepth {
+		t.Errorf("got %v, want errDepth", err)
+	}
+}
+
+func TestDecompressionBombRejected(t *testing.T) {
+	var z bytes.Buffer
+	zw := zlib.NewWriter(&z)
+	zw.Write(make([]byte, maxDecoded+1))
+	zw.Close()
+	f := &File{objs: map[int]any{}}
+	_, err := f.Decode(&Stream{Dict: Dict{"Filter": Name("FlateDecode")}, Raw: z.Bytes()})
+	if err == nil {
+		t.Error("a stream larger than maxDecoded was accepted")
+	}
+}
+
 func TestOpenRejectsNonPDF(t *testing.T) {
 	if _, err := Open([]byte("hello")); err == nil {
 		t.Error("non-PDF accepted")

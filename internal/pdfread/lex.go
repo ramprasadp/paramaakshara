@@ -24,11 +24,18 @@ type (
 	}
 )
 
-var errEOF = errors.New("pdfread: unexpected end of data")
+var (
+	errEOF   = errors.New("pdfread: unexpected end of data")
+	errDepth = errors.New("pdfread: arrays or dictionaries nested too deeply")
+)
+
+// maxDepth limits nesting so that a crafted file cannot exhaust the stack.
+const maxDepth = 100
 
 type lexer struct {
-	b   []byte
-	pos int
+	b     []byte
+	pos   int
+	depth int
 }
 
 func isWhite(c byte) bool {
@@ -283,6 +290,10 @@ func (l *lexer) hex() (String, error) {
 }
 
 func (l *lexer) array() (Array, error) {
+	if l.depth++; l.depth > maxDepth {
+		return nil, errDepth
+	}
+	defer func() { l.depth-- }()
 	var a Array
 	for {
 		o, err := l.object()
@@ -297,6 +308,10 @@ func (l *lexer) array() (Array, error) {
 }
 
 func (l *lexer) dict() (Dict, error) {
+	if l.depth++; l.depth > maxDepth {
+		return nil, errDepth
+	}
+	defer func() { l.depth-- }()
 	d := Dict{}
 	for {
 		k, err := l.object()

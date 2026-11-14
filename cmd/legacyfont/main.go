@@ -195,55 +195,25 @@ func dump(w io.Writer, pages []page) {
 	}
 }
 
-// convert writes each line as Unicode. Runs of one font separated only by
-// gaps are converted together, the gap as a space, so that reordering
-// sees whole lines. Fonts without a table are written as Windows-1252,
-// which is right for ordinary Latin fonts.
+// convert writes each line as Unicode (legacyfont.ConvertLine) and sums
+// up fonts without a table and unmapped codes on warn.
 func convert(w, warn io.Writer, pages []page, tables map[string]*legacyfont.Table) {
 	unmapped := map[string]map[byte]int{}
 	untabled := map[string]bool{}
 	for _, p := range pages {
 		fmt.Fprintf(w, "== page %d ==\n", p.number)
 		for _, l := range p.lines {
-			var sb strings.Builder
-			var buf []byte
-			var cur *legacyfont.Table
-			flush := func() {
-				if cur != nil && len(buf) > 0 {
-					text, miss := cur.Convert(buf)
-					sb.WriteString(text)
-					for _, c := range miss {
-						if unmapped[cur.Font] == nil {
-							unmapped[cur.Font] = map[byte]int{}
-						}
-						unmapped[cur.Font][c]++
-					}
-				}
-				buf = buf[:0]
-			}
 			for _, r := range l.Runs {
-				if r.Font == nil {
-					if cur != nil {
-						buf = append(buf, ' ')
-					} else {
-						sb.WriteByte(' ')
-					}
-					continue
-				}
-				t := tables[r.Font.Name]
-				if t != cur {
-					flush()
-					cur = t
-				}
-				if t == nil {
+				if r.Font != nil && tables[r.Font.Name] == nil {
 					untabled[r.Font.Name] = true
-					sb.WriteString(cp1252(r.Code))
-				} else {
-					buf = append(buf, r.Code...)
 				}
 			}
-			flush()
-			fmt.Fprintln(w, strings.TrimRight(sb.String(), " "))
+			fmt.Fprintln(w, legacyfont.ConvertLine(l, tables, func(font string, c byte) {
+				if unmapped[font] == nil {
+					unmapped[font] = map[byte]int{}
+				}
+				unmapped[font][c]++
+			}))
 		}
 	}
 	for _, name := range sortedKeys(untabled) {

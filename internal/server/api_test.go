@@ -3,8 +3,10 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -329,5 +331,72 @@ func TestPickFolderWithoutPicker(t *testing.T) {
 	f := newAPIFixture(t)
 	if status, body := f.call(t, "POST", "/api/folders/pick", map[string]any{}); status != http.StatusServiceUnavailable || code(body) != "unavailable" {
 		t.Errorf("%d %v", status, body)
+	}
+}
+
+// postRaw sends body as is (not JSON), as the browser sends a PDF.
+func (f *apiFixture) postRaw(t *testing.T, target string, body []byte) (int, map[string]any) {
+	t.Helper()
+	req := httptest.NewRequest("POST", target, bytes.NewReader(body))
+	req.Host = testHost
+	req.Header.Set("Origin", testOrigin)
+	req.Header.Set("Content-Type", "application/pdf")
+	req.AddCookie(&http.Cookie{Name: CookieName, Value: f.cookie})
+	rec := httptest.NewRecorder()
+	f.h.ServeHTTP(rec, req)
+	var out map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("POST %s: body %q is not JSON", target, rec.Body.String())
+	}
+	return rec.Code, out
+}
+
+// legacyPDF is a one-page PDF with उप॑ in SHREE-SAN-0962, as on page 22
+// of mantrastotra.pdf.
+func legacyPDF() []byte {
+	content := `BT /S 10 Tf 1 0 0 1 72 700 Tm (\355T"]) Tj ET`
+	var b bytes.Buffer
+	b.WriteString("%PDF-1.7\n")
+	for i, o := range []string{
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [3 0 R] /Count 1 /Resources << /Font << /S 5 0 R >> >> >>",
+		"<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>",
+		fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(content), content),
+		"<< /Type /Font /Subtype /TrueType /BaseFont /SHREE-SAN-0962 >>",
+	} {
+		fmt.Fprintf(&b, "%d 0 obj\n%s\nendobj\n", i+1, o)
+	}
+	b.WriteString("trailer\n<< /Root 1 0 R >>\n%%EOF\n")
+	return b.Bytes()
+}
+
+func TestImportLegacyPDF(t *testing.T) {
+	f := newAPIFixture(t)
+	status, body := f.postRaw(t, "/api/import/legacy-pdf", legacyPDF())
+	if status != http.StatusOK {
+		t.Fatalf("status %d: %v", status, body)
+	}
+	pages, _ := body["pages"].([]any)
+	if len(pages) != 1 {
+		t.Fatalf("pages: %v", body["pages"])
+	}
+	lines := pages[0].(map[string]any)["lines"].([]any)
+	if len(lines) != 1 || lines[0] != "उप॑" {
+		t.Errorf("lines: %v", lines)
+	}
+	fonts := body["fonts"].([]any)
+	if len(fonts) != 1 || fonts[0].(map[string]any)["table"] != "SHREE-SAN-0962" {
+		t.Errorf("fonts: %v", fonts)
+	}
+}
+
+func TestImportLegacyPDFRejects(t *testing.T) {
+	f := newAPIFixture(t)
+	if status, body := f.postRaw(t, "/api/import/legacy-pdf", []byte("hello")); status != http.StatusBadRequest || code(body) != "bad_request" {
+		t.Errorf("not a PDF: %d %v", status, body)
+	}
+	big := append([]byte("%PDF-1.7\n"), make([]byte, 4<<16)...)
+	if status, body := f.postRaw(t, "/api/import/legacy-pdf", big); status != http.StatusRequestEntityTooLarge || code(body) != "too_large" {
+		t.Errorf("too large: %d %v", status, body)
 	}
 }

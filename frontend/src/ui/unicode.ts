@@ -41,24 +41,33 @@ const NAMES: Record<Script, string> = {
   tamil: "Tamil",
 };
 
+/** Text the Unicode dialog starts with. */
+export interface Start {
+  text: string;
+  /** The text was pasted into the ITRANS pane: offer to keep it unchanged. */
+  pasted?: boolean;
+  title?: string;
+}
+
 /**
- * Opens the Unicode dialog. With pasted text, it also offers to insert
- * the text unchanged.
+ * Opens the Unicode dialog, empty or with start text. With pasted text,
+ * it also offers to insert the text unchanged.
  */
 export async function unicodeDialog(
   doc: EditorDocument,
   convert: (itrans: string) => LinePreview,
   script: Script,
   opts: Options,
-  pasted?: string,
+  start?: Start,
 ): Promise<void> {
+  const pasted = start?.pasted ? start.text : undefined;
   const input = el("textarea", {
     className: "unicode-input",
     rows: 8,
     spellcheck: false,
     placeholder:
       "Paste Unicode text here, e.g.  अ\u0952ग\u094Dन\u093Fम\u0940\u0951ळ\u0947 प\u0941\u0952र\u094Bह\u093F\u0951त\u0902",
-    value: pasted ?? "",
+    value: start?.text ?? "",
   });
   const preview = el("div", { className: "unicode-preview" });
   const toItrans = (text: string) =>
@@ -109,9 +118,10 @@ export async function unicodeDialog(
   render();
 
   const choice = await show(
-    pasted === undefined
-      ? "Paste Unicode text"
-      : "This looks like Unicode text",
+    start?.title ??
+      (pasted === undefined
+        ? "Paste Unicode text"
+        : "This looks like Unicode text"),
     [
       "Devanagari, Kannada or Tamil text is rewritten in ITRANS. Lines marked ⚠ will change when converted (for example an accent before an anusvara is moved after it); hover over a line for details.",
       input,

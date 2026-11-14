@@ -11,7 +11,8 @@ import type { Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
 import { looksLikeBaraha } from "./conversion/baraha";
 import { barahaDialog } from "./ui/baraha";
-import { looksLikeUnicode, unicodeDialog } from "./ui/unicode";
+import { legacyPdfImport } from "./ui/legacy";
+import { looksLikeUnicode, unicodeDialog, type Start } from "./ui/unicode";
 import { cleanupCommand } from "./ui/cleanup";
 import { alertBox, confirmBox, el, show } from "./ui/dialog";
 import { Palette } from "./ui/palette";
@@ -161,13 +162,13 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     byId("converter").textContent =
       `ITRANS 5.3 → ${scriptSelect.selectedOptions[0]?.textContent ?? script}`;
   };
-  const unicodeImport = (pasted?: string) =>
+  const unicodeImport = (start?: Start) =>
     unicodeDialog(
       doc,
       (line) => convert(line, script),
       script,
       { devanagariDigits },
-      pasted,
+      start,
     );
   const doc = new EditorDocument({
     sourceParent: byId("source"),
@@ -186,7 +187,7 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     // Unicode text, which would only pass through.
     onSourcePaste: (text) => {
       if (looksLikeUnicode(text)) {
-        void unicodeImport(text);
+        void unicodeImport({ text, pasted: true });
         return true;
       }
       if (!looksLikeBaraha(text)) return false;
@@ -255,6 +256,8 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     "file-save": () => f.save(),
     "file-save-as": () => f.saveAs(),
     "file-import": () => f.importFile(),
+    "legacy-pdf": () =>
+      legacyPdfImport((text, title) => unicodeImport({ text, title })),
     "export-all": () => f.exportAll(),
   };
   const quit = byId<HTMLButtonElement>("quit");

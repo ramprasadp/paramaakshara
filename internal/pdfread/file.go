@@ -184,6 +184,10 @@ func (f *File) Resolve(o any) any {
 
 func (f *File) dict(o any) Dict { return dictOf(f.Resolve(o)) }
 
+// maxDecoded limits a decoded stream so that a small compressed stream
+// cannot expand without bound.
+const maxDecoded = 64 << 20
+
 // Decode returns a stream's decoded data.
 func (f *File) Decode(s *Stream) ([]byte, error) {
 	var filters []any
@@ -207,11 +211,14 @@ func (f *File) Decode(s *Stream) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			out, err := io.ReadAll(r)
+			out, err := io.ReadAll(io.LimitReader(r, maxDecoded+1))
 			// Many writers leave a bad checksum or truncated tail; keep
 			// what was decoded.
 			if err != nil && len(out) == 0 {
 				return nil, err
+			}
+			if len(out) > maxDecoded {
+				return nil, fmt.Errorf("pdfread: a stream decodes to more than %d MiB", maxDecoded>>20)
 			}
 			data = out
 		default:
@@ -283,6 +290,9 @@ func (f *File) contents(p Page) ([]byte, error) {
 			return nil, err
 		}
 		out = append(append(out, d...), '\n')
+		if len(out) > maxDecoded {
+			return nil, fmt.Errorf("pdfread: page %d has more than %d MiB of content", p.Number, maxDecoded>>20)
+		}
 	}
 	return out, nil
 }

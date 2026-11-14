@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"path"
@@ -15,6 +16,7 @@ import (
 	"github.com/ramprasadp/paramaakshara/internal/config"
 	"github.com/ramprasadp/paramaakshara/internal/document"
 	"github.com/ramprasadp/paramaakshara/internal/folder"
+	"github.com/ramprasadp/paramaakshara/internal/legacyfont"
 	"github.com/ramprasadp/paramaakshara/internal/pdf"
 )
 
@@ -33,6 +35,7 @@ type api struct {
 	pdf      PDFMaker
 	pick     func(ctx context.Context, start string) (string, error)
 	client   ClientConfig
+	legacy   map[string]*legacyfont.Table // nil: legacy-font import is unavailable
 }
 
 // PDFMaker makes the PDF for Export all; *pdf.Maker in the daemon.
@@ -50,6 +53,7 @@ func (a *api) routes(mux *http.ServeMux, auth *Auth) {
 	handle("PUT /api/document", a.saveDocument)
 	handle("POST /api/export/pdf", a.exportPDF)
 	handle("POST /api/folders/pick", a.pickFolder)
+	handle("POST /api/import/legacy-pdf", a.importLegacyPDF)
 	handle("GET /api/recovery", a.listRecovery)
 	handle("GET /api/recovery/{key}", a.getRecovery)
 	handle("PUT /api/recovery/{key}", a.putRecovery)
@@ -195,6 +199,34 @@ func (a *api) pickFolder(w http.ResponseWriter, r *http.Request) {
 	root := a.store.AddPicked(dir)
 	log.Printf("picked folder %q: %s", root, dir)
 	writeJSON(w, http.StatusOK, map[string]string{"root": root, "name": filepath.Base(dir)})
+}
+
+// importLegacyPDF converts the text of a PDF typeset with legacy
+// (non-Unicode) fonts (§6.10). The body is the PDF itself, at most four
+// times the document size limit. Nothing is stored, and the text is not
+// logged.
+func (a *api) importLegacyPDF(w http.ResponseWriter, r *http.Request) {
+	if a.legacy == nil {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "Importing legacy-font PDFs is not available.")
+		return
+	}
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4*a.client.MaxDocumentBytes))
+	if err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			writeError(w, http.StatusRequestEntityTooLarge, "too_large", "The PDF is larger than four times the document size limit.")
+		} else {
+			writeError(w, http.StatusBadRequest, "bad_request", "The PDF could not be received.")
+		}
+		return
+	}
+	doc, err := legacyfont.ConvertPDF(data, a.legacy)
+	if err != nil {
+		msg := strings.TrimPrefix(err.Error(), "pdfread: ")
+		writeError(w, http.StatusBadRequest, "bad_request", "The file could not be read as a PDF: "+msg+".")
+		return
+	}
+	writeJSON(w, http.StatusOK, doc)
 }
 
 func (a *api) listRecovery(w http.ResponseWriter, r *http.Request) {

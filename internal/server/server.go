@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ramprasadp/paramaakshara/internal/document"
+	"github.com/ramprasadp/paramaakshara/internal/legacyfont"
 )
 
 // Options configures the handler returned by New.
@@ -52,7 +53,12 @@ func New(opts Options) http.Handler {
 			}
 		})))
 	if opts.Store != nil {
-		(&api{store: opts.Store, recovery: opts.Recovery, pdf: opts.PDF, pick: opts.PickFolder, client: opts.Client}).routes(mux, opts.Auth)
+		legacy, err := legacyfont.Tables()
+		if err != nil {
+			log.Printf("legacy-font tables: %v", err)
+			legacy = nil
+		}
+		(&api{store: opts.Store, recovery: opts.Recovery, pdf: opts.PDF, pick: opts.PickFolder, client: opts.Client, legacy: legacy}).routes(mux, opts.Auth)
 	}
 	// Any other /api path: unknown endpoint, but only after the session
 	// check, so unauthenticated callers learn nothing about the API.

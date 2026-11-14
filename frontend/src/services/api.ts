@@ -59,6 +59,15 @@ export interface ExportPdfRequest {
   lines: string[];
 }
 
+/** A PDF converted from legacy fonts (TECH_SPEC §6.10). */
+export interface LegacyDocument {
+  pages: { number: number; lines: string[] }[];
+  /** Fonts used for text; table is empty when the font has none. */
+  fonts: { name: string; table: string; bytes: number }[];
+  /** Codes with no table entry, kept in the text as ‹XX›. */
+  unmapped: { font: string; code: string; count: number }[];
+}
+
 export interface Snapshot {
   key: string;
   saved_at: string;
@@ -76,7 +85,10 @@ async function call<T>(
   keepalive = false,
 ): Promise<T> {
   const init: RequestInit = { method, keepalive };
-  if (body !== undefined) {
+  if (body instanceof Blob) {
+    init.body = body;
+    init.headers = { "Content-Type": body.type || "application/octet-stream" };
+  } else if (body !== undefined) {
     init.body = JSON.stringify(body);
     init.headers = { "Content-Type": "application/json" };
   }
@@ -132,6 +144,9 @@ export const api = {
       "/api/folders/pick",
       { start },
     ).then((r) => r ?? null),
+  /** Converts a PDF typeset with legacy fonts; nothing is stored. */
+  importLegacyPdf: (pdf: Blob) =>
+    call<LegacyDocument>("POST", "/api/import/legacy-pdf", pdf),
   snapshots: () =>
     call<{ snapshots: Snapshot[] }>("GET", "/api/recovery").then(
       (r) => r.snapshots,

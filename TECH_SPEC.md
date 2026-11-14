@@ -197,6 +197,8 @@ Initial toolbar actions:
 -   Find and replace.
 -   Open (document browser for configured folders) and Import (any file
     from the computer).
+-   Legacy PDF (convert the text of a PDF typeset with legacy fonts,
+    §6.10).
 -   Save and Save As.
 -   Export.
 -   Document status.
@@ -899,6 +901,43 @@ like typed text.
 -   The ITRANS is inserted at the input cursor as one undoable edit; the
     output follows it as linked segments in the current output script.
 
+### 6.10 Importing PDFs typeset with legacy fonts
+
+Many Sanskrit PDFs were typeset with 8-bit Indic fonts (Shree-Lipi,
+Baraha BRH, Sanskrit 99 and others) and have no Unicode text: copying
+from them gives Latin characters. **Legacy PDF** converts such a PDF's
+text to Unicode (ADR 0005, `docs/legacy-fonts.md`).
+
+-   The PDF is chosen with the browser's file picker and sent to the
+    daemon (`POST /api/import/legacy-pdf`), which reads the glyphs each
+    page draws per font and converts them with per-font data tables in
+    `internal/legacyfont/tables/`. Nothing is stored and the text is not
+    logged. The daemon limits the request to four times
+    `documents.max_document_bytes`, and nesting and decompressed stream
+    sizes inside the PDF, so a crafted file cannot exhaust it.
+-   Conversion is deterministic and data-driven (§2.5): longest-match
+    lookup of glyph code sequences, then reordering from the font's
+    visual order to Unicode order (i sign, reph, half forms, accents
+    after anusvara and visarga per ADR 0002). Tables are built only from
+    page readings a person has checked against the rendered page, and
+    those readings are their tests.
+-   A table can cover several fonts with the same encoding. Fonts
+    without a table are read as Windows-1252, which is right for Latin
+    fonts. Glyphs drawn again over themselves to imitate bold are read
+    once; gaps between words placed separately become spaces.
+-   Nothing disappears silently (§6.6, §7.2): a code a table has no
+    entry for is kept in the text as `‹XX›` (its hex code), and the
+    dialog lists such codes and the fonts without a table.
+-   The text is what the PDF draws, including its typos. The dialog
+    shows the fonts, a page range and a preview; the chosen pages, with a
+    blank line between pages, then open in the Import Unicode dialog
+    (§6.9), which rewrites them in ITRANS for insertion.
+-   Version 1 has a table for Shree-Lipi `SHREE-SAN-0962` (also used for
+    `SHREE-SAN-0960` and `SHREE-SAN-0964`), built from
+    `mantrastotra.pdf`, and the Shree-Lipi Kannada rupee sign. Tables for
+    further fonts are added the same way, with the `legacyfont`
+    developer tool.
+
 ------------------------------------------------------------------------
 
 ## 7. Script conversion
@@ -1166,6 +1205,9 @@ it. Absolute paths are never accepted from the browser.
   POST     `/api/folders/pick`       Show the system folder picker on
                                      this computer; returns an opaque
                                      folder name (§10.1b)
+  POST     `/api/import/legacy-pdf`  Convert the text of a PDF typeset
+                                     with legacy fonts; the body is the
+                                     PDF (§6.10)
   GET      `/api/recovery`           List recovery snapshots (without
                                      their content)
   GET      `/api/recovery/{key}`     Read one recovery snapshot
@@ -1173,10 +1215,11 @@ it. Absolute paths are never accepted from the browser.
   DELETE   `/api/recovery/{key}`     Discard a recovery snapshot
   POST     `/api/shutdown`           Stop the daemon
 
-Import and export happen in the browser and need no endpoint. Import
-reads a file chosen from anywhere on the computer with the browser's
-file picker (rejecting invalid UTF-8); the result is an untitled
-document that Save puts into a document folder. Export downloads the
+Import and export happen in the browser and need no endpoint, except
+Legacy PDF (§6.10), whose PDF the daemon reads and converts without
+storing it. Import reads a file chosen from anywhere on the computer
+with the browser's file picker (rejecting invalid UTF-8); the result is
+an untitled document that Save puts into a document folder. Export downloads the
 Unicode output as a `.txt` file. Export all (§10.1b) writes its text
 files with `PUT /api/document`, like Save, and its PDF with
 `POST /api/export/pdf`.
@@ -1449,7 +1492,8 @@ stop the daemon with a message naming the key.
                                                                 as linked segments ("Import
                                                                 as ITRANS").
 
-Future possibilities: Markdown, HTML and DOCX export; Baraha
+Text in PDFs typeset with legacy fonts is imported with Legacy PDF
+(§6.10). Future possibilities: Markdown, HTML and DOCX export; Baraha
 legacy-format import; other legacy Sanskrit encodings, subject to
 licensing and technical feasibility.
 
@@ -1704,6 +1748,8 @@ Cover:
     foreign `Origin`.
 -   Second launch while running.
 -   Autosave recovery after the browser is killed.
+-   Legacy PDF: each font table against the verified page readings it
+    was built from; malformed, oversized and deeply nested PDFs.
 
 ### 13.6 Visual tests
 
@@ -2110,6 +2156,12 @@ changed.
        the configured roots                  shown by the daemon, kept for the
                                              session under an opaque name; the
                                              browser never sends paths (§9.4).
+  17   Legacy-font PDFs        Decided       The daemon reads the PDF with a
+                                             standard-library reader and
+                                             converts it with per-font data
+                                             tables; the text then goes
+                                             through Import Unicode (§6.10,
+                                             ADR 0005).
 
 ------------------------------------------------------------------------
 

@@ -12,6 +12,13 @@ from a companion font such as `SHREE-SAN-0964E`), so the conversion
 needs the font of each byte, which plain text copied from a PDF viewer
 does not carry. The input is therefore the PDF itself.
 
+## In the editor
+
+**Legacy PDF…** in the toolbar converts a PDF with the tables below
+(TECH_SPEC §6.10, ADR 0005): choose the PDF, check the fonts and the
+glyphs without a table entry (shown as `‹XX›`), pick the pages, and the
+text opens in the Import Unicode dialog to be rewritten in ITRANS.
+
 ## `legacyfont`
 
 `cmd/legacyfont` shows what a PDF actually draws. It uses
