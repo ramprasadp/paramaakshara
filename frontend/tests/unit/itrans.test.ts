@@ -98,6 +98,18 @@ describe("Vedic accents (§5.3)", () => {
     expect(transliterate("sa__").issues).toHaveLength(1);
   });
 
+  it("accepts accents after a digit (Ṛgveda kampa)", () => {
+    // Ṛgveda 10.127.1, sanskritdocuments.org.
+    const r = transliterate(
+      "rAtrI_ vya'khyadAya_tI pu'ru_trA dE_vya1_'kShabhi'H",
+    );
+    expect(r.text).toBe("रात्री॒ व्य॑ख्यदाय॒ती पु॑रु॒त्रा दे॒व्य१॒॑क्षभिः॑");
+    expect(r.issues).toEqual([]);
+    expect(transliterate("1'", { devanagariDigits: false }).text).toBe(
+      "1\u0951",
+    );
+  });
+
   it("flags an accent that does not follow a vowel", () => {
     for (const input of ["'sa", "sa '", "k'"]) {
       const r = transliterate(input);

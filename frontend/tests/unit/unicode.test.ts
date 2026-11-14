@@ -106,6 +106,17 @@ describe("unicodeToItrans", () => {
     const r = unicodeToItrans("१०", { devanagariDigits: false });
     expect(r).toEqual({ itrans: "१०", issues: [], exact: true });
   });
+
+  it("keeps accents on a digit (Ṛgveda kampa)", () => {
+    expect(unicodeToItrans("दे॒व्य१॒॑क्षभिः॑")).toEqual({
+      itrans: "dE_vya1_'kShabhi'H",
+      issues: [],
+      exact: true,
+    });
+    expect(unicodeToItrans("१॒॑", { devanagariDigits: false }).exact).toBe(
+      true,
+    );
+  });
 });
 
 describe("looksLikeUnicode", () => {

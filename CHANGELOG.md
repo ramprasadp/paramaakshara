@@ -4,6 +4,9 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+-   Accents after a digit: `dE_vya1_'kShabhi'H` gives दे॒व्य१॒॑क्षभिः॑
+    (Ṛgveda kampa); previously the accents were flagged.
+
 -   Import Unicode: paste Devanagari, Kannada or Tamil text (icon in the
     ITRANS input header, or paste into the ITRANS pane); it is rewritten
     in ITRANS and inserted at the cursor. Lines that would not convert

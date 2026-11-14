@@ -209,7 +209,8 @@ export function transliterate(line: string, opts: Options = {}): Result {
     const tok = tokenAt(line, i);
     if (tok === null) {
       closeConsonant();
-      vowel = false;
+      // Ṛgveda kampa: a digit may carry accents, as in dE_vya1_'kSha.
+      vowel = /[0-9\u0966-\u096F]/.test(ch);
       if (ch >= "0" && ch <= "9") {
         out += digits
           ? String.fromCharCode(0x0966 + (ch.charCodeAt(0) - 48))

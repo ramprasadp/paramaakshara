@@ -563,6 +563,10 @@ a_gnimii'LE pu_rOhi'taM ya_j~nasya' dE_vamR^i_tvija'm
 -   **Accent without a vowel.** An accent sequence at the start of a
     line, after a space, or after a consonant with no vowel is passed
     through unchanged and flagged.
+-   **Accents on a digit.** An accent may also follow a digit. The
+    Ṛgveda marks a kampa with १ carrying the accents of the
+    surrounding syllables: `dE_vya1_'kShabhi'H` gives दे॒व्य१॒॑क्षभिः॑
+    (Ṛgveda 10.127.1). This holds with ASCII digits too.
 -   **Literal characters.** In the ITRANS source, `'` and `_` always
     mean accents. A literal apostrophe or underscore is typed directly
     in the output pane.
