@@ -21,6 +21,7 @@ type Config struct {
 	Documents Documents `json:"documents"`
 	Recovery  Recovery  `json:"recovery"`
 	Logging   Logging   `json:"logging"`
+	PDF       PDF       `json:"pdf"`
 	Editor    Editor    `json:"editor"`
 }
 
@@ -55,6 +56,13 @@ type Logging struct {
 	// means standard error.
 	File       string `json:"file"`
 	MaxBackups int    `json:"max_backups"`
+}
+
+// PDF configures how Export all makes PDFs (spec §10.1b).
+type PDF struct {
+	// Browser is the Chrome, Edge or Chromium executable run headless.
+	// Empty means search the usual install locations.
+	Browser string `json:"browser"`
 }
 
 // Editor holds the settings the browser may change (spec §9.5).
@@ -202,5 +210,8 @@ func (c *Config) ExpandPaths() error {
 		return err
 	}
 	c.Logging.File = p
+	if c.PDF.Browser, err = ExpandHome(c.PDF.Browser); err != nil {
+		return err
+	}
 	return nil
 }

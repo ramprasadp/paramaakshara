@@ -19,9 +19,10 @@ import {
 } from "./model/project";
 import { fromProject, projectScript } from "./model/project";
 import type { Script } from "./conversion/script";
-import { outputText, type Context } from "./model/segments";
+import { outputText, sourceText, type Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
 import { alertBox, closeDialog, confirmBox, el, show } from "./ui/dialog";
+import { printLines, rememberedOptions } from "./ui/pdf";
 
 interface Current {
   name: string;
@@ -49,6 +50,9 @@ export class Files {
   private saved: string;
   private lastSnapshot = "";
   private quitting = false;
+  /** Folders chosen in the system folder picker, until the page closes. */
+  private picked: { root: string; name: string }[] = [];
+  private lastExportRoot: string | null = null;
   private settings: Settings;
   private readonly recoveryKey: string;
   private readonly onStatus: (name: string, dirty: boolean) => void;
@@ -465,6 +469,194 @@ export class Files {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
+  /**
+   * Export all (§10.1b): asks for a folder and a name, then writes
+   * name.itrans.txt, name.uni.txt and name.pdf there. The daemon makes
+   * the PDF with a headless browser; without one, the print dialog opens.
+   */
+  async exportAll(): Promise<void> {
+    const select = el("select");
+    const root =
+      this.lastExportRoot ?? this.current.root ?? this.config.roots[0]!;
+    const addOption = (value: string, label: string) =>
+      select.append(el("option", { value, selected: value === root }, label));
+    for (const r of this.config.roots) addOption(r, r);
+    for (const p of this.picked) addOption(p.root, p.name);
+    const choose = el("button", { type: "button" }, "Choose…");
+    const pickError = el("p", { className: "error", hidden: true });
+    choose.addEventListener("click", () => {
+      void (async () => {
+        pickError.hidden = true;
+        choose.disabled = true;
+        try {
+          const p = await api.pickFolder(select.value);
+          if (!p) return;
+          let option = [...select.options].find(
+            (o) => o.value === p.root && o.textContent === p.name,
+          );
+          if (!option) {
+            this.picked.push(p);
+            option = el("option", { value: p.root }, p.name);
+            select.append(option);
+          }
+          option.selected = true;
+        } catch (e) {
+          pickError.textContent = e instanceof Error ? e.message : String(e);
+          pickError.hidden = false;
+        } finally {
+          choose.disabled = false;
+        }
+      })();
+    });
+    const input = el("input", {
+      type: "text",
+      value: exportBase(this.current.path ?? this.current.name),
+      className: "path",
+      spellcheck: false,
+    });
+    const ok = await show(
+      "Export all",
+      [
+        el("label", {}, "Folder ", select, " ", choose),
+        pickError,
+        el("label", {}, "Name ", input),
+        el(
+          "p",
+          { className: "muted" },
+          "Writes name.itrans.txt (the ITRANS input), name.uni.txt (the Unicode output) and name.pdf in the folder. " +
+            "A name may include subfolders, as in rigveda/purusha-sukta.",
+        ),
+      ],
+      [
+        { label: "Cancel", value: false },
+        { label: "Export", value: true, primary: true },
+      ],
+    );
+    if (!ok) return;
+    const base = exportBase(input.value.trim());
+    if (base === "") return;
+    const folder = select.value;
+    const folderName = select.selectedOptions[0]?.textContent ?? folder;
+    this.lastExportRoot = folder;
+    const lines = outputText(this.doc.segments).split("\n");
+    const text = (path: string, content: string) => (rev: string) =>
+      api.save({
+        root: folder,
+        path,
+        base_revision: rev,
+        content,
+        bom: false,
+        line_ending: "lf",
+      });
+    const name = basename(base);
+    const pdf = rememberedOptions("", name);
+    const exports = [
+      {
+        path: `${base}.itrans.txt`,
+        send: text(`${base}.itrans.txt`, sourceText(this.doc.segments)),
+      },
+      {
+        path: `${base}.uni.txt`,
+        send: text(`${base}.uni.txt`, outputText(this.doc.segments)),
+      },
+      {
+        path: `${base}.pdf`,
+        send: (rev: string) =>
+          api.exportPdf({
+            root: folder,
+            path: `${base}.pdf`,
+            base_revision: rev,
+            title: pdf.title,
+            page: pdf.page,
+            size_pt: pdf.sizePt,
+            lines,
+          }),
+      },
+    ];
+    let replace = false;
+    for (const f of exports) {
+      const written = await this.writeExport(folderName, f, replace);
+      if (written === "unavailable") return this.printInstead(lines, name, f);
+      if (written === null) return;
+      replace ||= written === "replaced";
+    }
+    await alertBox(
+      "Exported",
+      `Wrote ${exports.map((f) => f.path).join(", ")} in ${folderName}.`,
+    );
+  }
+
+  /** Without a browser for the daemon, the PDF is printed from here. */
+  private async printInstead(
+    lines: string[],
+    name: string,
+    f: { path: string },
+  ): Promise<void> {
+    const next = await show(
+      "Export all: PDF",
+      [
+        "The text files were written, but no Chrome, Edge or Chromium was found to make the PDF " +
+          "(see pdf.browser in the configuration file).",
+        `In the print dialog, choose Save as PDF and save ${f.path} in the same folder. ` +
+          "Turn off “Headers and footers” for a clean page.",
+      ],
+      [
+        { label: "Skip PDF", value: false },
+        { label: "Print / Save as PDF", value: true, primary: true },
+      ],
+    );
+    if (next) await printLines(lines, rememberedOptions("", name));
+  }
+
+  /**
+   * Writes one exported file, asking before replacing an existing one
+   * unless replacing was already confirmed. Resolves with null when
+   * cancelled or failed. folderName is only for messages.
+   */
+  private async writeExport(
+    folderName: string,
+    f: { path: string; send: (baseRevision: string) => Promise<string> },
+    replace: boolean,
+    baseRevision = "",
+  ): Promise<"written" | "replaced" | "unavailable" | null> {
+    // Making a PDF takes a few seconds.
+    const pdf = f.path.endsWith(".pdf");
+    const busy = pdf ? show("Export all", [`Making ${f.path}…`], []) : null;
+    let error: unknown = null;
+    try {
+      await f.send(baseRevision);
+    } catch (e) {
+      error = e;
+    }
+    if (busy) {
+      // Its close event fires later; let it pass before the next dialog.
+      closeDialog();
+      await busy;
+    }
+    if (error === null) return baseRevision === "" ? "written" : "replaced";
+    if (error instanceof ApiError && error.code === "unavailable")
+      return "unavailable";
+    if (
+      error instanceof ApiError &&
+      error.code === "conflict" &&
+      error.currentRevision &&
+      baseRevision === ""
+    ) {
+      if (
+        !replace &&
+        !(await confirmBox(
+          "Replace existing files?",
+          `${f.path} already exists in ${folderName}. Export all replaces the exported files that already exist.`,
+          "Replace",
+        ))
+      )
+        return null;
+      return this.writeExport(folderName, f, true, error.currentRevision);
+    }
+    await this.fail(`Could not export ${f.path}`, error);
+    return null;
+  }
+
   // --- Recovery (§10.4) ---------------------------------------------------
 
   private async snapshot(keepalive = false): Promise<void> {
@@ -583,6 +775,15 @@ function basename(path: string): string {
 function suggestedName(c: Current): string {
   const base = c.name.replace(/\.(paramaakshara\.json|txt|itx|json)$/i, "");
   return `${base === "Untitled" ? "untitled" : base}.paramaakshara.json`;
+}
+
+/** A document path or name without its file extension, for Export all. */
+function exportBase(name: string): string {
+  const base = name.replace(
+    /\.(paramaakshara\.json|itrans\.txt|uni\.txt|txt|itx|json|pdf)$/i,
+    "",
+  );
+  return base === "Untitled" ? "untitled" : base;
 }
 
 function textName(name: string): string {

@@ -3,13 +3,19 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
+	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/ramprasadp/paramaakshara/internal/config"
 	"github.com/ramprasadp/paramaakshara/internal/document"
+	"github.com/ramprasadp/paramaakshara/internal/folder"
+	"github.com/ramprasadp/paramaakshara/internal/pdf"
 )
 
 // ClientConfig is what GET /api/config returns: editor settings and the
@@ -24,7 +30,14 @@ type ClientConfig struct {
 type api struct {
 	store    *document.Store
 	recovery *document.Recovery
+	pdf      PDFMaker
+	pick     func(ctx context.Context, start string) (string, error)
 	client   ClientConfig
+}
+
+// PDFMaker makes the PDF for Export all; *pdf.Maker in the daemon.
+type PDFMaker interface {
+	Make(ctx context.Context, r pdf.Request) ([]byte, error)
 }
 
 func (a *api) routes(mux *http.ServeMux, auth *Auth) {
@@ -35,6 +48,8 @@ func (a *api) routes(mux *http.ServeMux, auth *Auth) {
 	handle("GET /api/documents", a.listDocuments)
 	handle("GET /api/document", a.openDocument)
 	handle("PUT /api/document", a.saveDocument)
+	handle("POST /api/export/pdf", a.exportPDF)
+	handle("POST /api/folders/pick", a.pickFolder)
 	handle("GET /api/recovery", a.listRecovery)
 	handle("GET /api/recovery/{key}", a.getRecovery)
 	handle("PUT /api/recovery/{key}", a.putRecovery)
@@ -90,6 +105,96 @@ func (a *api) saveDocument(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"revision": rev})
+}
+
+type exportPDFRequest struct {
+	Root         string   `json:"root"`
+	Path         string   `json:"path"`
+	BaseRevision string   `json:"base_revision"`
+	Title        string   `json:"title"`
+	Page         string   `json:"page"`
+	SizePt       int      `json:"size_pt"`
+	Lines        []string `json:"lines"`
+}
+
+// exportPDF makes a PDF of the given lines and writes it into a document
+// folder (§10.1b). The text is not logged.
+func (a *api) exportPDF(w http.ResponseWriter, r *http.Request) {
+	var req exportPDFRequest
+	if !a.decode(w, r, &req) {
+		return
+	}
+	if a.pdf == nil {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "PDF export is not available.")
+		return
+	}
+	pr := pdf.Request{
+		Title:  req.Title,
+		Name:   strings.TrimSuffix(path.Base(req.Path), ".pdf"),
+		Page:   req.Page,
+		SizePt: req.SizePt,
+		Lines:  req.Lines,
+	}
+	if err := pr.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error()+".")
+		return
+	}
+	// Conflicts and bad paths are found before the slow part.
+	if err := a.store.CheckExport(req.Root, req.Path, req.BaseRevision); err != nil {
+		writeFailure(w, r, err)
+		return
+	}
+	data, err := a.pdf.Make(r.Context(), pr)
+	if errors.Is(err, pdf.ErrUnavailable) {
+		writeError(w, http.StatusServiceUnavailable, "unavailable",
+			"No Chrome, Edge or Chromium was found to make the PDF. Install one, or set pdf.browser in the configuration file.")
+		return
+	}
+	if err != nil {
+		log.Printf("export pdf: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal", "The PDF could not be made; see the log file.")
+		return
+	}
+	rev, err := a.store.Export(req.Root, req.Path, req.BaseRevision, data)
+	if err != nil {
+		writeFailure(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"revision": rev})
+}
+
+// pickFolder shows the system folder picker on this computer and makes
+// the chosen folder a document folder until the daemon stops (§10.1b).
+// The browser gets an opaque name, never the path.
+func (a *api) pickFolder(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Start string `json:"start"` // a document folder to start in
+	}
+	if !a.decode(w, r, &req) {
+		return
+	}
+	if a.pick == nil {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "Choosing a folder is not available here.")
+		return
+	}
+	start, _ := a.store.Dir(req.Start)
+	dir, err := a.pick(r.Context(), start)
+	switch {
+	case errors.Is(err, folder.ErrCancelled):
+		w.WriteHeader(http.StatusNoContent)
+		return
+	case errors.Is(err, folder.ErrUnavailable):
+		writeError(w, http.StatusServiceUnavailable, "unavailable",
+			"There is no folder picker on this system; add folders to documents.roots in the configuration file.")
+		return
+	case err != nil:
+		log.Printf("pick folder: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal", "The folder picker failed; see the log file.")
+		return
+	}
+	root := a.store.AddPicked(dir)
+	log.Printf("picked folder %q: %s", root, dir)
+	writeJSON(w, http.StatusOK, map[string]string{"root": root, "name": filepath.Base(dir)})
 }
 
 func (a *api) listRecovery(w http.ResponseWriter, r *http.Request) {
@@ -152,6 +257,7 @@ var statusFor = map[string]int{
 	"conflict":     http.StatusConflict,
 	"too_large":    http.StatusRequestEntityTooLarge,
 	"invalid_utf8": http.StatusUnprocessableEntity,
+	"unavailable":  http.StatusServiceUnavailable,
 }
 
 // writeFailure maps store errors to the structured format from §9.3.

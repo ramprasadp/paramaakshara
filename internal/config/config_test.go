@@ -130,6 +130,10 @@ func TestExpandPaths(t *testing.T) {
 	if c.Logging.File != filepath.Join(home, "logs", "p.log") {
 		t.Errorf("log = %s", c.Logging.File)
 	}
+	c.PDF.Browser = "~/bin/chromium"
+	if err := c.ExpandPaths(); err != nil || c.PDF.Browser != filepath.Join(home, "bin", "chromium") {
+		t.Errorf("pdf.browser = %s, %v", c.PDF.Browser, err)
+	}
 	c.Logging.File = "-"
 	if err := c.ExpandPaths(); err != nil || c.Logging.File != "-" {
 		t.Errorf("stderr marker changed: %q %v", c.Logging.File, err)

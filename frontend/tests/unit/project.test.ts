@@ -100,6 +100,9 @@ describe("plain text and ITRANS files", () => {
     expect(fileKind("rv/1.paramaakshara.json")).toBe("project");
     expect(fileKind("a.ITX")).toBe("itrans");
     expect(fileKind("a.txt")).toBe("text");
+    // Written by Export all.
+    expect(fileKind("a.itrans.txt")).toBe("itrans");
+    expect(fileKind("a.uni.txt")).toBe("text");
   });
 
   it("opens text as output-only lines and ITRANS as linked lines", () => {

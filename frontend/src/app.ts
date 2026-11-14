@@ -255,6 +255,7 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
     "file-save": () => f.save(),
     "file-save-as": () => f.saveAs(),
     "file-import": () => f.importFile(),
+    "export-all": () => f.exportAll(),
   };
   const quit = byId<HTMLButtonElement>("quit");
   quit.disabled = false;

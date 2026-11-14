@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -43,6 +44,7 @@ func errorf(code, format string, args ...any) *Error {
 
 // Store gives access to the document folders.
 type Store struct {
+	mu          sync.RWMutex
 	roots       map[string]string // name -> absolute directory
 	maxBytes    int64
 	backupCount int
@@ -61,6 +63,33 @@ func NewStore(roots []config.Root, maxBytes int64, backupCount int, backupsDir s
 	}
 	return s, nil
 }
+
+// AddPicked makes a folder the user chose in the system folder picker
+// usable until the daemon stops, under a random name that the browser
+// uses as the root. Picking the same folder again gives the same name.
+func (s *Store) AddPicked(dir string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for name, d := range s.roots {
+		if d == dir && strings.HasPrefix(name, PickedPrefix) {
+			return name
+		}
+	}
+	name := PickedPrefix + randomSuffix()
+	s.roots[name] = dir
+	return name
+}
+
+// Dir returns the directory of a document folder.
+func (s *Store) Dir(root string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	dir, ok := s.roots[root]
+	return dir, ok
+}
+
+// PickedPrefix starts the names of picked folders.
+const PickedPrefix = "picked-"
 
 // Entry is one listed document.
 type Entry struct {
@@ -81,7 +110,7 @@ type Document struct {
 const maxListed = 5000
 
 func (s *Store) open(root string) (*os.Root, error) {
-	dir, ok := s.roots[root]
+	dir, ok := s.Dir(root)
 	if !ok {
 		return nil, errorf("not_found", "Unknown document folder %q.", root)
 	}
@@ -247,6 +276,59 @@ func (s *Store) Save(root, p, baseRevision, content string, withBOM bool, lineEn
 	if int64(len(data)) > s.maxBytes {
 		return "", errorf("too_large", "The document is %d bytes; the limit is %d.", len(data), s.maxBytes)
 	}
+	return s.write(root, p, baseRevision, data)
+}
+
+// Export writes a generated PDF (spec §10.1b) with the same revision
+// check, backups and atomic replace as Save. PDFs are not listed or
+// opened.
+func (s *Store) Export(root, p, baseRevision string, data []byte) (string, error) {
+	if err := s.CheckExport(root, p, baseRevision); err != nil {
+		return "", err
+	}
+	return s.write(root, p, baseRevision, data)
+}
+
+// CheckExport reports the error Export would give for the path and
+// revision, so a caller can check before making the PDF.
+func (s *Store) CheckExport(root, p, baseRevision string) error {
+	if p == "" || strings.Contains(p, `\`) || !filepath.IsLocal(p) || path.Clean(p) != p ||
+		!strings.HasSuffix(strings.ToLower(p), ".pdf") || len(p) == len(".pdf") {
+		return errorf("bad_request", "Invalid PDF path %q.", p)
+	}
+	r, err := s.open(root)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	current := ""
+	if old, err := r.ReadFile(p); err == nil {
+		current = Revision(old)
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	if current != baseRevision {
+		return conflict(current, baseRevision)
+	}
+	return nil
+}
+
+// conflict is the error for a file whose revision is current, not
+// baseRevision ("" meaning no file).
+func conflict(current, baseRevision string) *Error {
+	e := errorf("conflict", "The file changed on disk since it was opened.")
+	if current == "" {
+		e.Message = "The file was deleted on disk since it was opened."
+	} else if baseRevision == "" {
+		e.Message = "A file with this name already exists."
+	}
+	e.CurrentRevision = current
+	return e
+}
+
+// write stores data at p if the file on disk still has baseRevision
+// ("" for a new file).
+func (s *Store) write(root, p, baseRevision string, data []byte) (string, error) {
 	r, err := s.open(root)
 	if err != nil {
 		return "", err
@@ -263,14 +345,7 @@ func (s *Store) Save(root, p, baseRevision, content string, withBOM bool, lineEn
 		current = Revision(old)
 	}
 	if current != baseRevision {
-		e := errorf("conflict", "The file changed on disk since it was opened.")
-		if !exists {
-			e.Message = "The file was deleted on disk since it was opened."
-		} else if baseRevision == "" {
-			e.Message = "A file with this name already exists."
-		}
-		e.CurrentRevision = current
-		return "", e
+		return "", conflict(current, baseRevision)
 	}
 	if exists && current == Revision(data) {
 		return current, nil // unchanged

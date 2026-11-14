@@ -20,7 +20,7 @@ export type FileKind = "project" | "text" | "itrans";
 export function fileKind(path: string): FileKind {
   const p = path.toLowerCase();
   if (p.endsWith(".paramaakshara.json")) return "project";
-  if (p.endsWith(".itx")) return "itrans";
+  if (p.endsWith(".itx") || p.endsWith(".itrans.txt")) return "itrans";
   return "text";
 }
 

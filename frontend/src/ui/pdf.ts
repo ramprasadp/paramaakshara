@@ -12,6 +12,8 @@ export interface PdfOptions {
   title: string;
   page: "A4" | "Letter";
   sizePt: number;
+  /** Suggested PDF file name, without .pdf; defaults to the title. */
+  fileName?: string;
 }
 
 const STORAGE_KEY = "paramaakshara-pdf";
@@ -36,6 +38,20 @@ function remember(o: PdfOptions): void {
   } catch {
     // Storage unavailable: defaults next time.
   }
+}
+
+/** Page and text size as last chosen in Export PDF, with the given names. */
+export function rememberedOptions(
+  title: string,
+  fileName?: string,
+): PdfOptions {
+  const saved = remembered();
+  return {
+    title,
+    page: saved.page === "Letter" ? "Letter" : "A4",
+    sizePt: saved.sizePt && SIZES.includes(saved.sizePt) ? saved.sizePt : 18,
+    fileName,
+  };
 }
 
 /** Asks for title, page and text size, then opens the print dialog. */
@@ -113,7 +129,8 @@ export async function printLines(
   );
   const previousTitle = document.title;
   // Browsers suggest the page title as the PDF file name.
-  if (o.title) document.title = o.title;
+  const fileName = o.fileName ?? o.title;
+  if (fileName) document.title = fileName;
   await document.fonts.ready;
   const done = () => {
     view.replaceChildren();

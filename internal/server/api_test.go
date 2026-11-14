@@ -3,6 +3,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/ramprasadp/paramaakshara/internal/config"
 	"github.com/ramprasadp/paramaakshara/internal/document"
+	"github.com/ramprasadp/paramaakshara/internal/folder"
+	"github.com/ramprasadp/paramaakshara/internal/pdf"
 )
 
 type apiFixture struct {
@@ -26,6 +29,13 @@ type apiFixture struct {
 
 func newAPIFixture(t *testing.T) *apiFixture {
 	t.Helper()
+	return newAPIFixtureWith(t, func(*Options) {})
+}
+
+// newAPIFixtureWith lets set change the options, for example to add a
+// fake PDF maker or folder picker.
+func newAPIFixtureWith(t *testing.T, set func(*Options)) *apiFixture {
+	t.Helper()
 	log.SetOutput(io.Discard)
 	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 	base := t.TempDir()
@@ -35,7 +45,7 @@ func newAPIFixture(t *testing.T) *apiFixture {
 		t.Fatal(err)
 	}
 	auth := NewAuth(nil)
-	h := New(Options{
+	opts := Options{
 		Assets:   fstest.MapFS{},
 		Version:  "test",
 		Port:     testPort,
@@ -43,7 +53,9 @@ func newAPIFixture(t *testing.T) *apiFixture {
 		Store:    store,
 		Recovery: document.NewRecovery(filepath.Join(base, "recovery"), 1<<16),
 		Client:   ClientConfig{Roots: []string{"Documents"}, MaxDocumentBytes: 1 << 16, RecoveryIntervalSeconds: 15},
-	})
+	}
+	set(&opts)
+	h := New(opts)
 	session, _ := auth.Redeem(auth.Token())
 	return &apiFixture{h: h, cookie: session, docs: docs}
 }
@@ -200,5 +212,122 @@ func TestDocumentAPIRequiresSessionAndOrigin(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(f.docs, "x.txt")); !os.IsNotExist(err) {
 		t.Fatal("a refused request wrote a file")
+	}
+}
+
+// fakePDF records the request and returns a fixed PDF.
+type fakePDF struct {
+	got pdf.Request
+	err error
+}
+
+func (f *fakePDF) Make(_ context.Context, r pdf.Request) ([]byte, error) {
+	f.got = r
+	return []byte("%PDF-1.7 fake"), f.err
+}
+
+func TestExportPDF(t *testing.T) {
+	maker := &fakePDF{}
+	f := newAPIFixtureWith(t, func(o *Options) { o.PDF = maker })
+	req := map[string]any{
+		"root": "Documents", "path": "rv/sukta.pdf", "base_revision": "",
+		"page": "A4", "size_pt": 18, "lines": []string{"स भूमिं॑", ""},
+	}
+	status, body := f.call(t, "POST", "/api/export/pdf", req)
+	if status != http.StatusOK || body["revision"] == "" {
+		t.Fatalf("status %d body %v", status, body)
+	}
+	if maker.got.Name != "sukta" || maker.got.Page != "A4" || len(maker.got.Lines) != 2 {
+		t.Errorf("maker got %+v", maker.got)
+	}
+	data, err := os.ReadFile(filepath.Join(f.docs, "rv", "sukta.pdf"))
+	if err != nil || string(data) != "%PDF-1.7 fake" {
+		t.Fatalf("written %q, %v", data, err)
+	}
+	// An existing PDF is not replaced without its revision.
+	maker.got = pdf.Request{}
+	status, body = f.call(t, "POST", "/api/export/pdf", req)
+	if status != http.StatusConflict || code(body) != "conflict" {
+		t.Fatalf("second export: status %d body %v", status, body)
+	}
+	if maker.got.Page != "" {
+		t.Error("the PDF was made although the file exists")
+	}
+
+	req["page"] = "A3"
+	if status, _ := f.call(t, "POST", "/api/export/pdf", req); status != http.StatusBadRequest {
+		t.Errorf("page A3: status %d", status)
+	}
+	req["page"], req["path"] = "A4", "sukta.txt"
+	if status, _ := f.call(t, "POST", "/api/export/pdf", req); status != http.StatusBadRequest {
+		t.Errorf("a .txt path: status %d", status)
+	}
+
+	maker.err = pdf.ErrUnavailable
+	req["path"] = "other.pdf"
+	status, body = f.call(t, "POST", "/api/export/pdf", req)
+	if status != http.StatusServiceUnavailable || code(body) != "unavailable" {
+		t.Fatalf("no browser: status %d body %v", status, body)
+	}
+}
+
+func TestExportPDFWithoutMaker(t *testing.T) {
+	f := newAPIFixture(t)
+	status, body := f.call(t, "POST", "/api/export/pdf", map[string]any{
+		"root": "Documents", "path": "a.pdf", "page": "A4", "size_pt": 18,
+	})
+	if status != http.StatusServiceUnavailable || code(body) != "unavailable" {
+		t.Fatalf("status %d body %v", status, body)
+	}
+}
+
+func code(out map[string]any) any {
+	e, _ := out["error"].(map[string]any)
+	return e["code"]
+}
+
+func TestPickFolder(t *testing.T) {
+	picked := t.TempDir()
+	var start string
+	result, err := picked, error(nil)
+	f := newAPIFixtureWith(t, func(o *Options) {
+		o.PickFolder = func(_ context.Context, s string) (string, error) {
+			start = s
+			return result, err
+		}
+	})
+	status, body := f.call(t, "POST", "/api/folders/pick", map[string]any{"start": "Documents"})
+	root, _ := body["root"].(string)
+	if status != http.StatusOK || !strings.HasPrefix(root, document.PickedPrefix) || body["name"] != filepath.Base(picked) {
+		t.Fatalf("status %d body %v", status, body)
+	}
+	if start != f.docs {
+		t.Errorf("picker started in %q, want the Documents folder", start)
+	}
+	// The picked folder can be written like a configured one.
+	status, _ = f.call(t, "PUT", "/api/document", map[string]any{"root": root, "path": "a.txt", "content": "एक"})
+	if got, _ := os.ReadFile(filepath.Join(picked, "a.txt")); status != http.StatusOK || string(got) != "एक" {
+		t.Fatalf("save in picked folder: %d %q", status, got)
+	}
+	// A path from the browser is never a starting point.
+	f.call(t, "POST", "/api/folders/pick", map[string]any{"start": "/etc"})
+	if start != "" {
+		t.Errorf("picker started in %q", start)
+	}
+
+	result, err = "", folder.ErrCancelled
+	if status, _ := f.call(t, "POST", "/api/folders/pick", map[string]any{}); status != http.StatusNoContent {
+		t.Errorf("cancelled: status %d", status)
+	}
+	err = folder.ErrUnavailable
+	if status, body := f.call(t, "POST", "/api/folders/pick", map[string]any{}); status != http.StatusServiceUnavailable || code(body) != "unavailable" {
+		t.Errorf("unavailable: %d %v", status, body)
+	}
+}
+
+func TestPickFolderWithoutPicker(t *testing.T) {
+	f := newAPIFixture(t)
+	if status, body := f.call(t, "POST", "/api/folders/pick", map[string]any{}); status != http.StatusServiceUnavailable || code(body) != "unavailable" {
+		t.Errorf("%d %v", status, body)
 	}
 }

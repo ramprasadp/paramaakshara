@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import { resolve } from "node:path";
-import { defineConfig, devices } from "@playwright/test";
+import { chromium, defineConfig, devices } from "@playwright/test";
 
 // The tests run their own daemon on port 7541 with HOME set to .e2e/home,
 // so they never touch the user's documents, recovery files or a daemon
@@ -15,6 +15,8 @@ const config = JSON.stringify({
   documents: { roots: [{ name: "Documents", path: `${E2E}/docs` }] },
   recovery: { interval_seconds: 1 },
   logging: { file: `${E2E}/daemon.log` },
+  // Export all makes PDFs with Playwright's own Chromium.
+  pdf: { browser: chromium.executablePath() },
 });
 
 export default defineConfig({

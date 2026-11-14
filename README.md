@@ -14,7 +14,10 @@ ITRANS.
 -   **Devanagari, Kannada, Tamil:** switch the output script at any time;
     anything a script cannot write exactly is reported, never dropped.
 -   **Export** the output as plain text or **PDF** (through the browser's
-    Save as PDF, with the fonts embedded).
+    Save as PDF, with the fonts embedded). **Export all** writes
+    `name.itrans.txt`, `name.uni.txt` and `name.pdf` into a document
+    folder in one step; the PDF is made with Chrome, Edge or Chromium
+    running in the background, so one of them must be installed.
 -   **Clean up text** for Baraha output (accent order, double svarita,
     short e/o, colon visarga) and a **Vedic symbol palette**.
 -   **Your files stay on your computer.** The editor runs in your browser

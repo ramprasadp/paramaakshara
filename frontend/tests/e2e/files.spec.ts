@@ -182,6 +182,128 @@ test("a file changed on disk is not overwritten without asking", async ({
   expect(readFileSync(join(DOCS, name), "utf8")).toContain('"source": "mine!"');
 });
 
+test("Export all writes the ITRANS, Unicode and PDF files", async ({
+  page,
+  browserName,
+}) => {
+  test.setTimeout(60_000);
+  await signIn(page);
+  await typeSource(page, "Eka\ndvi");
+  const base = `export/${browserName}-sukta`;
+  const exportAll = async () => {
+    await page.click("#export-all");
+    await page.locator("dialog input.path").fill(base);
+    await button(page, "Export").click();
+  };
+  await exportAll();
+  await expect(page.locator("dialog[open]")).toContainText("Exported", {
+    timeout: 30_000,
+  });
+  await button(page, "OK").click();
+  expect(readFileSync(join(DOCS, `${base}.itrans.txt`), "utf8")).toBe(
+    "Eka\ndvi",
+  );
+  expect(readFileSync(join(DOCS, `${base}.uni.txt`), "utf8")).toBe("एक\nद्वि");
+  const pdf = readFileSync(join(DOCS, `${base}.pdf`));
+  expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+  expect(pdf.includes("NotoSerifDevanagari-Regular")).toBe(true);
+  // Exporting does not save the document.
+  await expect(page.locator("#docname")).toHaveText("Untitled •");
+
+  // Existing files are replaced only after asking.
+  await typeSource(page, "!");
+  await exportAll();
+  await expect(page.locator("dialog[open]")).toContainText("already exists");
+  await button(page, "Cancel").click();
+  expect(readFileSync(join(DOCS, `${base}.itrans.txt`), "utf8")).toBe(
+    "Eka\ndvi",
+  );
+  await exportAll();
+  await button(page, "Replace").click();
+  await expect(page.locator("dialog[open]")).toContainText("Exported", {
+    timeout: 30_000,
+  });
+  expect(readFileSync(join(DOCS, `${base}.itrans.txt`), "utf8")).toBe(
+    "Eka\ndvi!",
+  );
+  expect(readFileSync(join(DOCS, `${base}.pdf`)).equals(pdf)).toBe(false);
+});
+
+test("Export all can use a folder chosen in the system folder picker", async ({
+  page,
+  browserName,
+}) => {
+  test.setTimeout(60_000);
+  await signIn(page);
+  // The system picker cannot be driven from a browser test: answer as
+  // the daemon does after a pick, with the Documents folder.
+  await page.route("**/api/folders/pick", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ root: "Documents", name: "Chosen" }),
+    }),
+  );
+  await typeSource(page, "Eka");
+  await page.click("#export-all");
+  const dialog = page.locator("dialog[open]");
+  await dialog.getByRole("button", { name: "Choose…" }).click();
+  await expect(dialog.locator("select")).toHaveValue("Documents");
+  await expect(dialog.locator("select option:checked")).toHaveText("Chosen");
+  const base = `${browserName}-chosen`;
+  await dialog.locator("input.path").fill(base);
+  await button(page, "Export").click();
+  await expect(page.locator("dialog[open]")).toContainText("in Chosen.", {
+    timeout: 30_000,
+  });
+  await button(page, "OK").click();
+  expect(readFileSync(join(DOCS, `${base}.uni.txt`), "utf8")).toBe("एक");
+  // The next Export all starts in the same folder.
+  await page.click("#export-all");
+  await expect(page.locator("dialog[open] select option:checked")).toHaveText(
+    "Chosen",
+  );
+});
+
+test("without a browser for PDFs, Export all opens the print dialog", async ({
+  page,
+  browserName,
+}) => {
+  await signIn(page);
+  await page.route("**/api/export/pdf", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: { code: "unavailable", message: "No browser." },
+      }),
+    }),
+  );
+  await page.evaluate(() => {
+    (window as unknown as { printedAs: string }).printedAs = "";
+    window.print = () => {
+      (window as unknown as { printedAs: string }).printedAs = document.title;
+    };
+  });
+  await typeSource(page, "Eka");
+  const base = `export/${browserName}-fallback`;
+  await page.click("#export-all");
+  await page.locator("dialog input.path").fill(base);
+  await button(page, "Export").click();
+  await expect(page.locator("dialog[open]")).toContainText(
+    `${base}.pdf in the same folder`,
+  );
+  await button(page, "Print / Save as PDF").click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { printedAs: string }).printedAs,
+      ),
+    )
+    .toBe(`${browserName}-fallback`);
+  expect(readFileSync(join(DOCS, `${base}.uni.txt`), "utf8")).toBe("एक");
+});
+
 test("import a text file as Unicode output or as ITRANS", async ({ page }) => {
   await signIn(page);
   for (const [choice, expected] of [

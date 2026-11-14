@@ -4,6 +4,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"io/fs"
 	"log"
@@ -26,7 +27,11 @@ type Options struct {
 	// Document API; nil leaves the endpoints out.
 	Store    *document.Store
 	Recovery *document.Recovery
-	Client   ClientConfig
+	PDF      PDFMaker // nil: PDF export is unavailable
+	// PickFolder shows the system folder picker, starting in start, and
+	// returns the chosen directory; nil when there is no picker.
+	PickFolder func(ctx context.Context, start string) (string, error)
+	Client     ClientConfig
 }
 
 // New returns the daemon's HTTP handler.
@@ -47,7 +52,7 @@ func New(opts Options) http.Handler {
 			}
 		})))
 	if opts.Store != nil {
-		(&api{store: opts.Store, recovery: opts.Recovery, client: opts.Client}).routes(mux, opts.Auth)
+		(&api{store: opts.Store, recovery: opts.Recovery, pdf: opts.PDF, pick: opts.PickFolder, client: opts.Client}).routes(mux, opts.Auth)
 	}
 	// Any other /api path: unknown endpoint, but only after the session
 	// check, so unauthenticated callers learn nothing about the API.

@@ -22,8 +22,10 @@ import (
 	"github.com/ramprasadp/paramaakshara/frontend"
 	"github.com/ramprasadp/paramaakshara/internal/config"
 	"github.com/ramprasadp/paramaakshara/internal/document"
+	"github.com/ramprasadp/paramaakshara/internal/folder"
 	"github.com/ramprasadp/paramaakshara/internal/instance"
 	"github.com/ramprasadp/paramaakshara/internal/logging"
+	"github.com/ramprasadp/paramaakshara/internal/pdf"
 	"github.com/ramprasadp/paramaakshara/internal/server"
 )
 
@@ -175,6 +177,13 @@ func run() error {
 		log.Printf("document folder %q: %s", r.Name, r.Path)
 	}
 
+	pdfMaker := pdf.New(cfg.PDF.Browser, frontend.Fonts())
+	if b, err := pdfMaker.Browser(); err != nil {
+		log.Printf("pdf export: %v; Export all will use the print dialog", err)
+	} else {
+		log.Printf("pdf export: %s", b)
+	}
+
 	shutdown := make(chan struct{}, 1)
 	srv := &http.Server{
 		Handler: server.New(server.Options{
@@ -190,6 +199,13 @@ func run() error {
 			},
 			Store:    store,
 			Recovery: recovery,
+			PDF:      pdfMaker,
+			PickFolder: func(ctx context.Context, start string) (string, error) {
+				if cfg.Server.Container {
+					return "", folder.ErrUnavailable // no desktop in a container
+				}
+				return folder.Pick(ctx, "Choose a folder for Paramaakshara", start)
+			},
 			Client: server.ClientConfig{
 				Roots:                   roots,
 				MaxDocumentBytes:        cfg.Documents.MaxDocumentBytes,

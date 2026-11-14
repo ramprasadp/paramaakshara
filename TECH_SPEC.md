@@ -1160,6 +1160,12 @@ it. Absolute paths are never accepted from the browser.
   GET      `/api/documents?root=`    List documents in a folder
   GET      `/api/document?root=&path=` Open a document
   PUT      `/api/document`           Save a document
+  POST     `/api/export/pdf`         Make a PDF of the output lines
+                                     and write it in a document folder
+                                     (§10.1b)
+  POST     `/api/folders/pick`       Show the system folder picker on
+                                     this computer; returns an opaque
+                                     folder name (§10.1b)
   GET      `/api/recovery`           List recovery snapshots (without
                                      their content)
   GET      `/api/recovery/{key}`     Read one recovery snapshot
@@ -1171,7 +1177,9 @@ Import and export happen in the browser and need no endpoint. Import
 reads a file chosen from anywhere on the computer with the browser's
 file picker (rejecting invalid UTF-8); the result is an untitled
 document that Save puts into a document folder. Export downloads the
-Unicode output as a `.txt` file.
+Unicode output as a `.txt` file. Export all (§10.1b) writes its text
+files with `PUT /api/document`, like Save, and its PDF with
+`POST /api/export/pdf`.
 
 Example save request:
 
@@ -1223,6 +1231,11 @@ Error codes: `bad_request`, `unauthorized`, `forbidden`, `not_found`,
 -   **Path safety:** all file access goes through `os.Root` opened on
     the configured folder, which rejects `..`, absolute paths and
     symlinks that escape the folder.
+-   **Picked folders:** besides the configured folders, a folder the
+    user chooses in the operating system's folder picker (shown by the
+    daemon, §10.1b) is a document folder until the daemon stops. The
+    browser receives a random name (`picked-…`) and the folder's last
+    path element, never the path, and cannot name a folder itself.
 -   **Size limit:** requests and files larger than
     `documents.max_document_bytes` are rejected with `too_large`.
 
@@ -1316,6 +1329,9 @@ created on first run.
     "file": "",
     "max_backups": 14
   },
+  "pdf": {
+    "browser": ""
+  },
   "editor": {
     "input_scheme": "itrans",
     "output_script": "devanagari",
@@ -1352,6 +1368,10 @@ created on first run.
   `logging.file`                   per-OS path (above)       no            Empty means the default path;
                                                                            `-` means standard error.
   `logging.max_backups`            `14`                      no            Rotated log files kept.
+  `pdf.browser`                    empty                     no            Chrome/Edge/Chromium executable
+                                                                           for Export all PDFs (§10.1b);
+                                                                           empty searches the usual
+                                                                           places; `~` expanded.
   `editor.input_scheme`            `itrans`                  yes           Only `itrans` in v1.
   `editor.output_script`           `devanagari`              yes           Default for new documents.
   `editor.tamil_convention`        `superscript`             yes           §7.3.
@@ -1447,6 +1467,37 @@ print engine, where the user chooses Save as PDF:
     bundled fonts, so conjuncts and Vedic accents are correct in the PDF.
     JavaScript PDF libraries are not used because they cannot shape
     Devanagari, Kannada or Tamil correctly.
+
+### 10.1b Export all
+
+**Export all…** asks for a document folder and a name, then writes
+three files in that folder through the daemon. **Choose…** next to the
+folder list asks the daemon to show the system folder picker (macOS
+`choose folder`, PowerShell's FolderBrowserDialog on Windows, zenity or
+kdialog on Linux; not in the container); the chosen folder is added to
+the list for the session (§9.4). Export all starts in the folder it last
+used.
+
+-   `name.itrans.txt`: the ITRANS input, as in an `.itx` file.
+-   `name.uni.txt`: the Unicode output (§10.2).
+-   `name.pdf`: the output lines laid out as in §10.1a, without a
+    title, with the page size and text size last chosen in Export PDF.
+
+The name may contain subfolders. Existing files are replaced only after
+confirmation (and a PDF is not made when its file would be refused).
+The current document's name, location and saved state do not change.
+
+The daemon makes the PDF by running a Chromium-based browser installed
+on the computer (Chrome, Edge, Chromium or Brave) headless, with a
+throwaway profile, on a page that holds the text and the bundled fonts
+and loads nothing else (ADR 0004, §18 decision 15). The user may use any
+browser for the editor itself. `pdf.browser` names the executable;
+otherwise the usual install locations are searched. One PDF is made at a
+time, with a 60-second limit. When no browser is found, the text files
+are still written and the print dialog opens instead, with `name`
+suggested as the PDF file name.
+
+Opening a `.itrans.txt` file reads it as ITRANS input, like `.itx`.
 
 ### 10.2 Plain-text export
 
@@ -2050,6 +2101,15 @@ changed.
   13   HTTP port               Decided       Fixed default `7531`, configurable;
                                              no silent fallback (§9.6, §9.7).
   14   Licence                 Decided       GPL-3.0 (§17.2).
+  15   PDFs written to a       Decided       The daemon runs an installed
+       folder                                Chromium-based browser headless
+                                             (§10.1b, ADR 0004); the print
+                                             dialog remains for Export PDF and
+                                             as the fallback.
+  16   Folders outside         Decided       Chosen in the system folder picker
+       the configured roots                  shown by the daemon, kept for the
+                                             session under an opaque name; the
+                                             browser never sends paths (§9.4).
 
 ------------------------------------------------------------------------
 

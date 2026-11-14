@@ -49,6 +49,16 @@ export interface SaveRequest {
   line_ending: "lf" | "crlf";
 }
 
+export interface ExportPdfRequest {
+  root: string;
+  path: string;
+  base_revision: string;
+  title: string;
+  page: "A4" | "Letter";
+  size_pt: number;
+  lines: string[];
+}
+
 export interface Snapshot {
   key: string;
   saved_at: string;
@@ -111,6 +121,17 @@ export const api = {
     call<{ revision: string }>("PUT", "/api/document", req).then(
       (r) => r.revision,
     ),
+  exportPdf: (req: ExportPdfRequest) =>
+    call<{ revision: string }>("POST", "/api/export/pdf", req).then(
+      (r) => r.revision,
+    ),
+  /** Shows the folder picker on this computer; null when cancelled. */
+  pickFolder: (start: string) =>
+    call<{ root: string; name: string } | undefined>(
+      "POST",
+      "/api/folders/pick",
+      { start },
+    ).then((r) => r ?? null),
   snapshots: () =>
     call<{ snapshots: Snapshot[] }>("GET", "/api/recovery").then(
       (r) => r.snapshots,

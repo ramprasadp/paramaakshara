@@ -260,3 +260,53 @@ func TestNoTemporaryFilesLeft(t *testing.T) {
 		t.Fatalf("folder has %d entries, want only t.txt", len(entries))
 	}
 }
+
+func TestExportPDF(t *testing.T) {
+	f := newFixture(t)
+	pdf := []byte("%PDF-1.4 one")
+	rev, err := f.store.Export("Documents", "rv/sukta.pdf", "", pdf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(f.docs, "rv", "sukta.pdf"))
+	if err != nil || string(got) != string(pdf) {
+		t.Fatalf("written %q, %v", got, err)
+	}
+	// An existing PDF is replaced only with its current revision.
+	_, err = f.store.Export("Documents", "rv/sukta.pdf", "", []byte("%PDF-1.4 two"))
+	var e *Error
+	if !errors.As(err, &e) || e.Code != "conflict" || e.CurrentRevision != rev {
+		t.Fatalf("overwrite without revision: %v", err)
+	}
+	if _, err := f.store.Export("Documents", "rv/sukta.pdf", rev, []byte("%PDF-1.4 two")); err != nil {
+		t.Fatal(err)
+	}
+	// PDFs are not documents: they are not listed.
+	entries, err := f.store.List("Documents")
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("listed %v, %v", entries, err)
+	}
+	for _, p := range []string{"", ".pdf", "a.txt", "../a.pdf", "/tmp/a.pdf", `a\b.pdf`, "a/../b.pdf"} {
+		if _, err := f.store.Export("Documents", p, "", pdf); code(err) != "bad_request" {
+			t.Errorf("Export(%q): want bad_request, got %v", p, err)
+		}
+	}
+}
+
+func TestAddPicked(t *testing.T) {
+	f := newFixture(t)
+	dir := t.TempDir()
+	name := f.store.AddPicked(dir)
+	if !strings.HasPrefix(name, PickedPrefix) || f.store.AddPicked(dir) != name {
+		t.Fatalf("name %q; picking again must reuse it", name)
+	}
+	if _, err := f.store.Save(name, "sukta.txt", "", "एक", false, "lf"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(filepath.Join(dir, "sukta.txt")); err != nil || string(got) != "एक" {
+		t.Fatalf("written %q, %v", got, err)
+	}
+	if _, err := f.store.Save("picked-unknown", "a.txt", "", "x", false, "lf"); code(err) != "not_found" {
+		t.Errorf("unknown picked folder: %v", err)
+	}
+}

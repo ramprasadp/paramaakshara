@@ -18,6 +18,13 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org/).
     as in Baraha.
 -   `kOM` now gives कों instead of क्ॐ.
 
+-   Export all: asks for a document folder and a name and writes
+    `name.itrans.txt`, `name.uni.txt` and `name.pdf` there. The daemon
+    makes the PDF with Chrome, Edge or Chromium run in the background
+    (`pdf.browser` in the configuration); without one, the print dialog
+    opens. `.itrans.txt` files open as ITRANS. **Choose…** picks any
+    folder on the computer in the system folder picker.
+
 -   Export PDF: prints the output on its own (title, A4 or Letter, text
     size) through the browser's Save as PDF, with the bundled fonts
     embedded.
