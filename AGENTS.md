@@ -3,16 +3,17 @@
 Guidance for coding agents working in this repository.
 
 Paramaakshara is a local-first Unicode editor for Sanskrit and Vedic
-texts: ITRANS typed in the left pane, editable Unicode output in the
-right pane, Vedic accents, Devanagari/Kannada/Tamil. A Go daemon serves
-a TypeScript frontend to the browser on `127.0.0.1`.
+texts: ITRANS typed in the left pane, read-only Unicode output in the
+right pane (generated from it line by line), Vedic accents,
+Devanagari/Kannada/Tamil. A Go daemon serves a TypeScript frontend to
+the browser on `127.0.0.1`.
 
 ## Read first
 
 -   `TECH_SPEC.md` --- the specification. It is authoritative; if code
     and spec disagree, raise it rather than silently following either.
     The decision log is §18.
--   `docs/dev-plan.md` --- milestones (M0--M9) and what each must
+-   `docs/dev-plan.md` --- milestones (M0--M10) and what each must
     deliver.
 -   `testdata/vedic/baraha/README.md` --- the Vedic samples, the Baraha
     legend and the known quirks in those texts.
@@ -51,11 +52,12 @@ pass.
 
 -   **Never change text silently.** No Unicode normalization anywhere
     (§6.6). Pasted and opened text is kept byte for byte. Fixes such as
-    the Clean up text command (§6.8) are explicit, previewed and
-    undoable.
--   **Manual output edits are never overwritten or deleted by source
-    edits.** The segment rules in §4.2--4.3 are the contract; every rule
-    has a unit test.
+    Clean up (§6.8) are explicit and previewed.
+-   **The ITRANS is the document.** Output line n is always the
+    conversion of input line n; the output pane is read-only and is
+    never saved, only copied or exported. Documents are saved as `.itx`
+    (§4, §10.3, ADR 0006). A converter change that alters the output of
+    existing ITRANS goes in `CHANGELOG.md`.
 -   **Conversion is deterministic and data-driven.** Mappings live in
     data tables (`frontend/src/conversion/mappings/`), not in UI code. No
     LLM or network call in the conversion path.
@@ -100,7 +102,7 @@ pass.
     (provisional until the M1 spike).
 -   Strict TypeScript; Prettier formatting.
 -   No CDNs, analytics or external requests; everything is bundled.
--   Keep conversion and the segment model as pure modules testable
+-   Keep conversion and the line model as pure modules testable
     without a browser.
 
 ## Licence and file headers

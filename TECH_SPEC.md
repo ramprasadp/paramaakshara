@@ -2,7 +2,7 @@
 
 **Repository name:** `paramaakshara`\
 **Document:** `TECH_SPEC.md`\
-**Version:** 1.1\
+**Version:** 1.2\
 **Status:** Draft for implementation --- core decisions recorded in §18\
 **Primary platform:** macOS\
 **Architecture:** Local-first browser application served by a Go daemon\
@@ -21,6 +21,10 @@
             accents; configuration, startup and session security
             (§9.5--9.8); project file format decided; dependencies
             (§16); decision log (§18).
+  1.2       Output generated from the ITRANS input and read-only;
+            documents saved as ITRANS `.itx` only; the segment model,
+            Regenerate and `.paramaakshara.json` removed (§4, §10,
+            ADR 0006).
 
 ------------------------------------------------------------------------
 
@@ -34,16 +38,15 @@ The primary workflow is a dual-pane editor:
 1.  The user types English transliteration using ITRANS in the left
     pane.
 2.  The right pane renders the corresponding Sanskrit text in real time.
-3.  The right pane is a fully editable Unicode document, not a read-only
-    preview.
-4.  Manual corrections in the right pane affect only the lines they
-    touch; the user can keep typing ITRANS and the remaining lines keep
-    updating.
-5.  The user can paste Unicode Sanskrit text from websites or other
-    applications directly into the output pane.
-6.  The user can change the output script between Devanagari, Kannada
+    It is generated from the ITRANS and is read-only; it can be
+    selected, copied and exported.
+3.  Corrections are made in the ITRANS, as in Baraha. A document is
+    saved as its ITRANS text.
+4.  Unicode Sanskrit text from websites, other applications or legacy
+    PDFs is imported into the input pane as ITRANS.
+5.  The user can change the output script between Devanagari, Kannada
     and Tamil.
-7.  Vedic accents are typed in the ITRANS source: `_` for anudātta,
+6.  Vedic accents are typed in the ITRANS source: `_` for anudātta,
     `'` for svarita and `'''` for double svarita (§5.3). They can also
     be inserted from a symbol palette; further accents will be available
     through configurable keyboard mappings.
@@ -55,9 +58,10 @@ architecture.
 ### 1.1 Primary goals
 
 -   Real-time ITRANS-to-Sanskrit transliteration.
--   A fully editable Unicode output pane.
+-   Unicode output that can be copied and exported exactly.
 -   Native clipboard behaviour, including Cmd-C and Cmd-V on macOS.
--   Direct Unicode paste without transliteration or data loss.
+-   Import of existing Unicode text as ITRANS, with every line that
+    does not convert back exactly reported.
 -   Script switching between Devanagari, Kannada and Tamil.
 -   Vedic accent and symbol support, including udātta, anudātta and
     svarita, labelled according to the Vedic tradition in use.
@@ -88,30 +92,31 @@ are stable.
 
 The following principles guide implementation decisions.
 
-### 2.1 Unicode is authoritative
+### 2.1 ITRANS is the document
 
-The document is Unicode text. ITRANS is an input representation, not the
-document's storage format.
+The document is the ITRANS text in the input pane. The Unicode output is
+derived from it, line by line, and is what is copied and exported. Both
+are UTF-8 text; no font glyph codes or legacy encodings are stored.
 
-### 2.2 The output pane is an editor
+### 2.2 The output follows the input
 
-The output pane must support ordinary text editing, selection, clipboard
-operations, direct typing, symbol insertion, undo and redo. It must
-never be treated as a disposable preview.
+Every output line is the conversion of its input line in the selected
+output script. The output pane is read-only, so the output can never
+disagree with the ITRANS that is saved (ADR 0006).
 
-### 2.3 Manual work is never discarded implicitly
+### 2.3 Text is never changed silently
 
-The ITRANS source and the Unicode output are separate state. Manual
-changes to the output must not silently modify, or be overwritten by,
-the source pane. A source edit never deletes manually edited output
-(§4.3).
+Opened, pasted and imported text is kept exactly (§6.6). Imported
+Unicode that does not convert back exactly from ITRANS is reported
+before it is inserted. A converter change that alters the output of
+existing ITRANS is listed in `CHANGELOG.md`.
 
-### 2.4 What is stored is what is shown
+### 2.4 What is copied is what is shown
 
 There is no hidden canonical copy of the output in another script. The
-text in the output pane is exactly the text that is saved. Changing the
-output script is an explicit, undoable operation that rewrites the
-output and reports anything that could not be converted faithfully.
+text in the output pane is exactly the text that is copied and
+exported. Changing the output script regenerates the output and reports
+anything that could not be converted faithfully.
 
 ### 2.5 Deterministic conversion
 
@@ -142,37 +147,33 @@ The primary interface contains two side-by-side panes.
 | ITRANS INPUT                   | UNICODE OUTPUT                  |
 |                                |                                 |
 |   agnim iiLe purohitaM         |   अग्निम् ईळे पुरोहितम्             |
-| ✎ yaj~nasya devam              | ✎ यज्ञस्य देवम्                     |
+|   yaj~nasya devam              |   यज्ञस्य देवम्                     |
 |                                |                                 |
 +--------------------------------+---------------------------------+
-| Vedic Symbols | Regenerate | Save | Find | 1 line edited | Saved  |
+| Vedic Symbols | Reference | Save | Find | 2 lines | Saved         |
 +------------------------------------------------------------------+
 ```
 
-`✎` is a gutter marker showing a line whose output was edited manually
-(§4.4). The example is illustrative. Exact transliteration output must
+The example is illustrative. Exact transliteration output must
 be validated against the selected ITRANS convention and test corpus.
 
 ### 3.2 Pane behaviour
 
 **Input pane**
 
--   Accepts ITRANS text.
--   Maintains the original source text.
+-   Accepts ITRANS text; is the document that is saved.
 -   Provides real-time transliteration.
--   Supports ordinary text selection, copy, paste and undo/redo.
--   Shows segment state markers in the gutter (§4.4).
+-   Supports ordinary text selection, copy, paste, undo/redo, find and
+    replace, and Vedic symbol insertion (§6.4).
+-   Shows conversion errors in the gutter (§4.4).
 
 **Output pane**
 
--   Displays the Unicode document.
--   Is fully editable.
--   Accepts direct keyboard input and pasted Unicode.
--   Supports Vedic symbol insertion.
--   Supports selection, copy, paste, undo/redo, find and replace.
+-   Displays the Unicode output generated from the input (§4).
+-   Is read-only.
+-   Supports selection, copy and find.
 -   Preserves combining marks and unsupported characters.
--   Is the content that is saved and exported.
--   Shows segment state markers in the gutter (§4.4).
+-   Is the content that is copied and exported.
 
 ### 3.3 Layout
 
@@ -191,12 +192,13 @@ Initial toolbar actions:
 -   Input scheme selector.
 -   Output script selector.
 -   Vedic symbol palette.
--   Regenerate line / Regenerate all (icon buttons).
 -   Import Unicode (icon button in the ITRANS input header, §6.9).
 -   Undo and redo.
 -   Find and replace.
--   Open (document browser for configured folders and folders chosen
-    with **Choose…**, §10.1b) and Import (any file from the computer).
+-   Open (any `.itx` or `.txt` file, in the system file picker; a
+    document browser for the document folders where there is none,
+    §10.1b) and Import (an ITRANS file from anywhere
+    on the computer).
 -   Legacy PDF (convert the text of a PDF typeset with legacy fonts,
     §6.10).
 -   Save and Save As.
@@ -239,229 +241,63 @@ override them. The application must therefore:
 
 ## 4. Core document and editing model
 
-This section defines the most important state-management requirements.
+The editing model is decided in ADR 0006. TECH_SPEC 1.1 had an
+editable output pane with per-line segments (linked, detached, stale,
+output-only); it was removed in 1.2.
 
-### 4.1 Segments
+### 4.1 Lines
 
-A document is an ordered list of **segments**. A segment pairs one line
-of output with the ITRANS source that produced it.
-
-``` ts
-type Segment = {
-  id: string;            // stable, generated; never shown to the user
-  source: string | null; // one or more ITRANS lines; null = output-only
-  output: string;        // exactly one line of Unicode text
-  linked: boolean;       // output is generated from source
-  stale: boolean;        // detached, and source changed since detaching
-};
-```
-
-Segment kinds:
-
--   **Linked:** `output == transliterate(source, outputScript)`. The
-    output is regenerated whenever the source changes.
--   **Detached:** has a source, but the output was edited manually. The
-    output is no longer regenerated automatically.
--   **Output-only:** `source == null`. Created by typing or pasting new
-    lines into the output pane, or by opening a plain-text file.
-
-Rules that hold at all times:
-
--   Every output line belongs to exactly one segment. Output line breaks
-    are segment boundaries.
--   Every source line belongs to exactly one segment. A segment normally
-    covers one source line; it covers several only after output lines
-    were merged (§4.3).
--   The input pane shows the sources of all segments that have one, in
-    document order. Output-only segments do not appear in the input
-    pane.
+The document is the text of the input pane. Output line *n* is always
+`convert(input line n, outputScript)`; the output has exactly as many
+lines as the input. There is no other state: nothing about a line is
+stored apart from its ITRANS.
 
 The granularity is the line because Vedic texts are naturally line
-oriented (pāda, ṛk, mantra). A correction to one line must not stop the
-rest of the document from following the source.
+oriented (pāda, ṛk, mantra), and because a line is converted on its own
+(§5.4).
 
-### 4.2 Source edits
+### 4.2 Input edits
 
-  Source edit                          Effect
-  ------------------------------------ ---------------------------------
-  Edit inside a linked segment         Output regenerated.
-  Edit inside a detached segment       Output unchanged; `stale = true`.
-  New line typed                       New linked segment, inserted
-                                       after the preceding source
-                                       segment and any output-only
-                                       segments that follow it.
-  Line split (Enter mid-line)          Linked: two linked segments.
-                                       Detached: first part keeps the
-                                       manual output and becomes stale;
-                                       second part is a new linked
-                                       segment.
-  Lines joined (line break deleted)    Both linked: one linked segment.
-                                       Otherwise: one detached, stale
-                                       segment whose output is the two
-                                       outputs joined by a space.
-  Source line deleted                  Linked: segment removed.
-                                       Detached: segment becomes
-                                       output-only (manual output is
-                                       kept).
-  Paste of multiple lines              Treated as typing those lines.
+Every edit in the input pane (typing, paste, delete, find/replace,
+symbol insertion, import) is an ordinary text edit. The output lines it
+touches are converted again; the others are unchanged. Unicode pasted
+into the input pane opens Import Unicode (§6.9).
 
-A merged segment (several source lines, created by §4.3) absorbs any
-source edit inside it, including new line breaks, and becomes stale.
-The exception is new lines typed at its very end, which become new
-linked segments as above.
+### 4.3 Output pane
 
-### 4.3 Output edits
+The output pane is read-only. Selection, copy (§11.2) and find work;
+typing, paste, cut and delete do nothing. To keep a correction, make it
+in the ITRANS. To use the output elsewhere, copy it or export it
+(§10.1a, §10.1b, §10.2).
 
-Any user edit in the output pane (typing, paste, delete, cut, symbol
-insertion, find/replace) follows these rules:
-
-  Output edit                          Effect
-  ------------------------------------ ---------------------------------
-  Edit inside a linked segment         Segment becomes detached.
-  Edit inside a detached segment       Output updated; source
-                                       unchanged.
-  Enter at the end of a line           New, empty output-only segment
-                                       after it. The current segment
-                                       is unchanged.
-  Enter at the start of a line         New output-only segment before
-                                       it.
-  Enter mid-line                       First part keeps the source and
-                                       becomes detached; second part
-                                       becomes output-only.
-  Line break deleted (merge)           One detached segment. Its source
-                                       is both sources joined by a line
-                                       break, so no source is lost.
-  Whole output line deleted            Segment removed. Its source line
-                                       is removed from the input pane
-                                       too, as one undoable operation.
-  Multi-line paste                     First line merges into the
-                                       segment at the cursor (detaching
-                                       it); remaining lines become
-                                       output-only segments.
-
-The ITRANS source is never modified by an output edit, except when a
-whole segment is deleted.
-
-### 4.3a Edits that span several lines
-
-The rows of §4.2 and §4.3 are special cases of one rule, which also
-covers replacing or deleting a selection across several lines. It
-applies to either pane; "text" means the source in the input pane and
-the output in the output pane.
-
-1.  Let A and B be the segments containing the start and end of the
-    edit. A keeps its text before the edit; B keeps its text after it.
-2.  Segments entirely inside the edit lose all their text.
-3.  If A and B both keep text and the inserted text has no line break,
-    they are joined (§4.2 / §4.3 "line break deleted").
-4.  Otherwise A keeps the first resulting line, B the last, and every
-    other line becomes a new segment: linked in the input pane,
-    output-only in the output pane. An end segment that keeps no text
-    loses it like the segments in step 2.
-5.  An edit inside a single segment that adds line breaks keeps the
-    segment on the line holding its leading text, or, if it has none,
-    on the line holding its trailing text (so Enter at the start of a
-    line does not move the segment).
-6.  A segment that loses all its text: in the input pane, a linked one
-    is removed and a detached one becomes output-only; in the output
-    pane, it is removed together with its source.
-
-The implementation is `frontend/src/model/segments.ts`; randomised
-tests check that both panes' text always equals a plain text edit and
-that no manual output is lost.
-
-**Re-linking:** whenever a detached segment's output exactly equals
-`transliterate(source, outputScript)`, it becomes linked again and
-`stale` is cleared. This makes undoing a manual edit behave naturally.
-
-### 4.4 Segment state indicators
+### 4.4 Line indicators
 
   State              Gutter marker   Meaning
   ------------------ --------------- --------------------------------------
-  Linked             none            Output follows the source.
-  Detached           `✎`             Output edited manually.
-  Detached + stale   `✎!`            Source changed after the manual edit;
-                                     regeneration is available.
-  Output-only        `+`             No source (output pane only).
   Conversion error   `⚠`             The source contains sequences that
                                      could not be converted.
 
-While the cursor or a selection is in either pane, the lines of the
-segments it touches are highlighted in both panes, so the matching line
-in the other pane is easy to find. The highlight is removed when
-neither pane has focus.
+While the cursor or a selection is in either pane, the lines it touches
+are highlighted in both panes, so the matching line in the other pane
+is easy to find. The highlight is removed when neither pane has focus.
+The status bar shows the number of lines and of lines with errors.
 
-Markers appear in both panes where the segment is visible. The status
-bar shows counts of detached, stale and error segments. Hovering a stale
-marker shows the current transliteration of the source next to the
-manual output.
+### 4.5 Script switching
 
-### 4.5 Regenerate output
+The output script is chosen in the output pane's header. Changing it
+regenerates every output line from its ITRANS in the new script, which
+is lossless, and does not change the input. Lines the script cannot
+show faithfully (§7.3) are reported. The choice is remembered in the
+browser, with `editor.output_script` as the default; it is not stored
+in the document.
 
--   **Regenerate line** replaces the output of the segment at the cursor
-    with the transliteration of its source and re-links it. A segment
-    that covers several source lines splits back into one linked segment
-    per source line.
--   **Regenerate all** does the same for every detached segment.
-    Output-only segments are not affected.
--   If a regeneration would replace manual output, the application must
-    ask for confirmation and say how many lines will be replaced.
--   Each regeneration is a single undoable operation in the output
-    history.
+There is no hidden Devanagari copy of the document.
 
-A future enhancement may show a side-by-side diff of the manual output
-and the regenerated output. This is not required for version 1.
+### 4.6 Undo/redo
 
-### 4.6 Script switching
-
-The output script is a property of the document. Changing it:
-
-1.  Regenerates every linked segment directly from its ITRANS source in
-    the new script. This is lossless.
-2.  Converts the output of every detached and output-only segment from
-    its current script to the new script using the script converter
-    (§7). Text in other scripts, Latin text, digits and punctuation that
-    has no mapping is left unchanged.
-3.  Reports, per segment, any character that could not be converted
-    faithfully (§7.3).
-4.  Does not modify the ITRANS source.
-5.  Is a single undoable operation.
-
-Converted detached segments stay detached unless the re-linking rule
-(§4.3) applies.
-
-There is no hidden Devanagari copy of the document. Mixed-script
-documents (for example a Devanagari verse with a Kannada commentary
-line) are allowed and saved exactly as shown.
-
-### 4.7 Undo/redo
-
--   Each pane has its own history. Cmd-Z acts on the focused pane.
--   The **input history** records source edits. Undoing a source edit
-    updates linked outputs, but those updates are not recorded in the
-    output history.
--   The **output history** records manual edits, paste, symbol
-    insertion, regeneration and script switching. Automatic updates of
-    linked segments are not recorded in it; the editor maps the output
-    history through them (CodeMirror does this natively).
--   Deleting a whole output line also removes its source line (§4.3).
-    This is one entry in the output history; undoing it restores both.
--   Undoing a manual output edit restores the previous output; the
-    re-linking rule then makes the segment linked again if the output
-    matches the source.
--   Undo and redo in one pane restore only that pane's side of a line
-    that the other pane has changed since. For example: edit output line
-    2, then edit its ITRANS, then undo in the output pane. The output is
-    restored and the ITRANS edit is kept; the line stays detached and
-    stale.
--   Undo in the input pane never discards manual output. If it removes a
-    line whose output was edited by hand, that output stays as an
-    output-only line.
-
-Implementation: every edit records a patch of the segments it changed
-(`frontend/src/model/patch.ts`) in the same CodeMirror transaction, so
-the pane's history replays the inverse patch with the text
-(`frontend/src/model/undo.ts`).
+The input pane has the only history. Cmd-Z in either pane undoes the
+last input edit, and the output follows. An import (§6.9, §6.10) is one
+undoable edit.
 
 ------------------------------------------------------------------------
 
@@ -562,7 +398,7 @@ a_gnimii'LE pu_rOhi'taM ya_j~nasya' dE_vamR^i_tvija'm
     (ADR 0002). The same applies to visarga (ः) and chandrabindu (ँ).
 -   **Longest match.** `'''` is read before `'`. A run of apostrophes
     must have length 1 or 3. Any other length (`''`, `''''`) is not
-    converted to marks: it is passed through unchanged and the segment
+    converted to marks: it is passed through unchanged and the line
     is flagged with a conversion error, so that a typing slip never
     produces a wrong but plausible accent.
 -   **Accent without a vowel.** An accent sequence at the start of a
@@ -573,8 +409,9 @@ a_gnimii'LE pu_rOhi'taM ya_j~nasya' dE_vamR^i_tvija'm
     surrounding syllables: `dE_vya1_'kShabhi'H` gives दे॒व्य१॒॑क्षभिः॑
     (Ṛgveda 10.127.1). This holds with ASCII digits too.
 -   **Literal characters.** In the ITRANS source, `'` and `_` always
-    mean accents. A literal apostrophe or underscore is typed directly
-    in the output pane.
+    mean accents. Version 1 has no way to write a literal apostrophe or
+    underscore in the output (ADR 0006); an escape is added only when
+    needed, after checking it against ITRANS 5.3.
 -   **Deviation from ITRANS 5.3.** This scheme is a project choice and
     takes precedence over any other meaning `'` or `_` has in the ITRANS
     reference. The deviation is recorded in `docs/itrans-mappings.md`.
@@ -592,8 +429,8 @@ a_gnimii'LE pu_rOhi'taM ya_j~nasya' dE_vamR^i_tvija'm
 
 ### 5.4 Conversion granularity
 
-Conversion is cheap. On every source change, the affected segments are
-re-converted in full from their source line. No incremental parser state
+Conversion is cheap. On every source change, the affected lines are
+re-converted in full. No incremental parser state
 is kept between keystrokes.
 
 -   Incomplete sequences are shown as their partial result: typing `k`
@@ -606,7 +443,7 @@ is kept between keystrokes.
 The parser must still handle complete and incomplete sequences,
 ambiguous prefixes (longest match), multi-character consonants, long
 vowels, special tokens, whitespace and punctuation. Sequences that are
-not valid ITRANS are passed through unchanged and the segment is marked
+not valid ITRANS are passed through unchanged and the line is marked
 with a conversion error (§4.4).
 
 ### 5.5 Conversion interfaces
@@ -756,10 +593,13 @@ Provide a searchable Vedic symbol palette, grouped by tradition.
 
 The palette must:
 
--   Let the user choose the tradition; remember the choice per document.
+-   Let the user choose the tradition; remember the choice in the
+    browser (it is not stored in the document, ADR 0006).
 -   Display the symbol, its traditional name, its Unicode name and code
     point.
--   Insert the character at the output editor's cursor position.
+-   Insert at the input pane's cursor: the symbol's ITRANS when it has
+    one (`_`, `'`, `'''`, `(gm)`, `(gg)` ...), otherwise the character
+    itself, which the converter passes through to the output (§5.4).
 -   Preserve the current selection/cursor behaviour.
 -   Support keyboard accessibility.
 -   Permit future configurable mappings.
@@ -851,9 +691,9 @@ Baraha source typed with `:` instead of `H` produces an ASCII colon
 not converted, searched or shaped as a visarga.
 
 -   Pasted and opened text is always kept exactly as it is (§6.6).
--   The output pane provides an explicit **Clean up text** command. In
-    version 1 it offers these fixes, each of which the user can select
-    or deselect:
+-   The Import Unicode dialog (§6.9) offers **Clean up** on the pasted
+    text before it is rewritten in ITRANS. In version 1 it offers these
+    fixes, each of which the user can select or deselect:
 
   Fix                  From                           To
   -------------------- ------------------------------ ---------------------------
@@ -873,10 +713,8 @@ not converted, searched or shaped as a visarga.
 
 -   Tamil has no visarga sign; Tamil text is left to the Tamil
     convention (§7.3).
--   The command shows the number of changes per fix and a preview before
-    applying them, applies to the selection or the whole document, and
-    is a single undoable operation. Changed segments are detached
-    (§4.3).
+-   The dialog shows the number of changes per fix and a preview before
+    applying them; the fixes apply to the pasted text only.
 -   Further fixes are added only when observed in real samples, each
     with a test case in `testdata/`.
 
@@ -902,7 +740,7 @@ like typed text.
     pasted text exactly in Devanagari, such as Baraha's accent before
     anusvara (§5.3) or precomposed nukta letters.
 -   The ITRANS is inserted at the input cursor as one undoable edit; the
-    output follows it as linked segments in the current output script.
+    output follows it in the current output script.
 
 ### 6.10 Importing PDFs typeset with legacy fonts
 
@@ -1012,11 +850,11 @@ interface ScriptConverter {
 The conversion layer is a plain TypeScript module with no dependency on
 the editor UI, so it can be tested on its own.
 
-### 7.5 Script switching and manual edits
+### 7.5 Script switching
 
-Script switching follows §4.6. It must work after manual output edits,
-must not discard them, and must report what could not be converted. The
-ITRANS source remains unchanged.
+Script switching follows §4.5: the output is regenerated from the
+ITRANS, which remains unchanged, and what could not be converted is
+reported.
 
 ------------------------------------------------------------------------
 
@@ -1032,11 +870,10 @@ ITRANS source remains unchanged.
 -   Built with Vite into static files that are embedded in the Go
     binary.
 
-The segment model (§4) needs range tracking across edits and gutter
-markers, which CodeMirror 6 provides (state fields, decorations, gutter
-extensions, history that maps through non-history changes). A plain
-textarea cannot show gutter markers and would need the segment model to
-be simplified.
+The panes need line-aligned gutters, error markers and highlighting
+of matching lines, which CodeMirror 6 provides (state fields,
+decorations, gutter extensions, read-only state). A plain textarea
+cannot show gutter markers.
 
 The M1 spike confirmed CodeMirror 6 (ADR 0001): it behaves the same in
 Chromium, Firefox and WebKit with Vedic text, never places the cursor
@@ -1064,8 +901,7 @@ frontend/
       StatusBar.ts
       DocumentBrowser.ts
     model/
-      segments.ts          # segment list and the rules in §4.2--4.3
-      segment-tracking.ts  # CodeMirror state fields and gutters
+      lines.ts             # output lines generated from input lines (§4)
     conversion/
       transliteration.ts
       script-conversion.ts
@@ -1208,6 +1044,9 @@ it. Absolute paths are never accepted from the browser.
   POST     `/api/folders/pick`       Show the system folder picker on
                                      this computer; returns an opaque
                                      folder name (§10.1b)
+  POST     `/api/files/pick`         Show the system file picker; returns
+                                     the opaque name of the file's
+                                     folder and the file name (§10.1b)
   POST     `/api/import/legacy-pdf`  Convert the text of a PDF typeset
                                      with legacy fonts; the body is the
                                      PDF (§6.10)
@@ -1221,8 +1060,8 @@ it. Absolute paths are never accepted from the browser.
 Import and export happen in the browser and need no endpoint, except
 Legacy PDF (§6.10), whose PDF the daemon reads and converts without
 storing it. Import reads a file chosen from anywhere on the computer
-with the browser's file picker (rejecting invalid UTF-8); the result is
-an untitled document that Save puts into a document folder. Export downloads the
+with the browser's file picker (rejecting invalid UTF-8) as ITRANS; the
+result is an untitled document that Save puts into a document folder. Export downloads the
 Unicode output as a `.txt` file. Export all (§10.1b) writes its text
 files with `PUT /api/document`, like Save, and its PDF with
 `POST /api/export/pdf`.
@@ -1232,9 +1071,9 @@ Example save request:
 ``` json
 {
   "root": "Documents",
-  "path": "rigveda/mandala-1.paramaakshara.json",
+  "path": "rigveda/mandala-1.itx",
   "base_revision": "sha256:9f2c…",
-  "content": "{ … project file … }"
+  "content": "a_gnimii'LE pu_rOhi'taM …"
 }
 ```
 
@@ -1278,8 +1117,9 @@ Error codes: `bad_request`, `unauthorized`, `forbidden`, `not_found`,
     the configured folder, which rejects `..`, absolute paths and
     symlinks that escape the folder.
 -   **Picked folders:** besides the configured folders, a folder the
-    user chooses in the operating system's folder picker (shown by the
-    daemon, §10.1b) is a document folder until the daemon stops. The
+    user chooses in the operating system's folder picker, or the folder
+    of a file chosen in its file picker (shown by the daemon, §10.1b),
+    is a document folder until the daemon stops. The
     browser receives a random name (`picked-…`) and the folder's last
     path element, never the path, and cannot name a folder itself.
 -   **Size limit:** requests and files larger than
@@ -1487,13 +1327,13 @@ stop the daemon with a message naming the key.
 
   Format                  Extension               Open   Save   Notes
   ----------------------- ----------------------- ------ ------ ---------------------------
-  Paramaakshara project   `.paramaakshara.json`   yes    yes    Native format; keeps source,
-                                                                output and segment state.
-  UTF-8 plain text        `.txt`                  yes    yes    Output only. Opened as
-                                                                output-only segments.
-  ITRANS source           `.itx`, `.txt`          yes    yes    Imported into the input pane
-                                                                as linked segments ("Import
-                                                                as ITRANS").
+  ITRANS source           `.itx`                  yes    yes    The document format (§10.3).
+  ITRANS source           `.txt`                  yes    no     Read as ITRANS.
+  Unicode output          `.txt`, `.pdf`          no     export Export .txt, Export PDF and
+                                                                Export all (§10.1a--10.2).
+
+`.paramaakshara.json` project files (TECH_SPEC 1.1) are no longer read
+or written (ADR 0006).
 
 Text in PDFs typeset with legacy fonts is imported with Legacy PDF
 (§6.10). Future possibilities: Markdown, HTML and DOCX export; Baraha
@@ -1523,8 +1363,13 @@ folder list asks the daemon to show the system folder picker (macOS
 `choose folder`, PowerShell's FolderBrowserDialog on Windows, zenity or
 kdialog on Linux; not in the container); the chosen folder is added to
 the list for the session (§9.4). Open and Save as have the same
-**Choose…** button and list. Export all starts in the folder it last
-used.
+**Choose…** button and list. **Open** (⌘O) shows the system file
+picker (`choose file`, OpenFileDialog, zenity or kdialog), starting in
+the current document's folder, and opens the chosen `.itx` or `.txt`
+file directly; its folder is added to the list as above, so Save writes
+back to it. Where there is no file picker (the container), Open lists
+the documents of the document folders instead. Export all
+starts in the folder it last used.
 
 -   `name.itrans.txt`: the ITRANS input, as in an `.itx` file.
 -   `name.uni.txt`: the Unicode output (§10.2).
@@ -1553,51 +1398,22 @@ Exported plain text is the output lines joined by line breaks. It
 contains the actual Unicode document, not the transliteration source or
 font-specific codes. Plain-text export is always available.
 
-### 10.3 Project file format
+### 10.3 Document file format
 
-``` json
-{
-  "format": "paramaakshara",
-  "format_version": 1,
-  "converter_version": "itrans-5.3/1",
-  "input_scheme": "itrans",
-  "output_script": "devanagari",
-  "tamil_convention": "superscript",
-  "vedic_tradition": "rigveda",
-  "segments": [
-    {
-      "source": "agnim iiLE purOhitaM",
-      "output": "अग्निम् ईळे पुरोहितम्",
-      "linked": true
-    },
-    {
-      "source": "yaj~nasya devam",
-      "output": "यज्ञस्य देवम्",
-      "linked": false,
-      "stale": false
-    },
-    {
-      "source": null,
-      "output": "…",
-      "linked": false
-    }
-  ]
-}
-```
+A document is saved as its ITRANS text: the input pane's lines, UTF-8,
+in a `.itx` file.
 
--   Segment IDs are not stored; they are regenerated on open.
--   The output of linked segments is stored too, so the file is readable
-    without the converter and survives converter changes.
--   On open, if a linked segment's stored output differs from what the
-    current converter produces (for example after a mapping fix), the
-    stored output is kept, the segment is marked detached and stale,
-    and the user is told how many lines are affected. Text never
-    changes silently on open.
--   Readers must reject files with a higher `format_version` than they
-    support, with a clear message.
--   The schema is validated by the frontend when a file is opened
-    (`frontend/src/model/project.ts`). The daemon stores project files as
-    opaque UTF-8 text.
+-   The line ending (LF or CRLF) and BOM of an opened file are written
+    back on save; new files use LF without a BOM (§9.4).
+-   Characters the converter passes through (§5.4), such as Devanagari
+    or Vedic signs without an ITRANS spelling, are saved as they are.
+-   The output, the output script and the Vedic tradition are not
+    stored. The output is regenerated on open; the script, Tamil
+    convention and tradition are the last ones chosen in the browser
+    (§4.5, §6.4).
+-   Because the output is regenerated, a converter change that alters
+    the output of existing ITRANS shows when a file is reopened. Such
+    changes are listed in `CHANGELOG.md` and `docs/itrans-mappings.md`.
 
 ### 10.4 Autosave, recovery and backups
 
@@ -1605,7 +1421,7 @@ font-specific codes. Plain-text export is always available.
 -   **Manual save** (Cmd-S) writes the file with the revision check
     (§9.4).
 -   **Recovery snapshots:** while the document has unsaved changes, the
-    frontend sends the full project JSON to `PUT /api/recovery/{key}`
+    frontend sends the ITRANS text to `PUT /api/recovery/{key}`
     every `recovery.interval_seconds`, and when the page is hidden or
     about to unload. `{key}` identifies the document (or an untitled
     document) and stays the same for the browser session.
@@ -1632,27 +1448,26 @@ font-specific codes. Plain-text export is always available.
 
 -   Cmd-C copies the selected ITRANS source.
 -   Cmd-V pastes plain text into the input pane.
--   Pasted input is processed according to the selected input scheme and
-    the segment rules (§4.2).
+-   Pasted ITRANS is an ordinary input edit (§4.2); pasted Unicode
+    opens Import Unicode (§6.9).
 
 ### 11.2 Output pane
 
--   Cmd-C copies Unicode text.
--   Cmd-V pastes Unicode text directly, as plain text.
--   Pasted Unicode must not be passed through ITRANS conversion.
+-   Cmd-C copies Unicode text, as plain text.
 -   Vedic combining marks, ZWJ/ZWNJ and other Unicode characters must be
-    preserved exactly.
--   Pasting replaces the current selection at the cursor and follows the
-    segment rules (§4.3).
+    copied exactly.
+-   The pane is read-only (§4.3): paste and cut do nothing.
 
 Use standard browser clipboard events. The asynchronous Clipboard API is
 not needed in version 1.
 
 ### 11.3 Clipboard acceptance test
 
-Copy a Vedic passage from an external Unicode website, paste it into the
-output pane, save it, close and reopen the document, then compare the
-Unicode code points. The text must remain unchanged.
+Type a Vedic passage in ITRANS, save it, close and reopen the document,
+copy the output and compare its Unicode code points with the verified
+reference. Copy a Vedic passage from an external Unicode website,
+import it (§6.9) and check that every line not reported ⚠ gives back
+the pasted code points.
 
 ------------------------------------------------------------------------
 
@@ -1660,17 +1475,16 @@ Unicode code points. The text must remain unchanged.
 
 Initial editor functionality should include:
 
--   Find text in the output document.
--   Replace one occurrence.
+-   Find text in the ITRANS source and in the output.
+-   Replace one occurrence (ITRANS source only).
 -   Replace all occurrences (one undoable operation).
--   Find in the ITRANS source.
 -   Preserve combining marks during search and replacement.
 -   Navigate between matches.
 
 Search compares exact code points. Text that looks the same but uses
 different code points will not match; this is documented in
-`docs/unicode-handling.md`. Replacements in the output pane detach the
-segments they change (§4.3).
+`docs/unicode-handling.md`. The output pane is read-only, so there is
+nothing to replace in it.
 
 ------------------------------------------------------------------------
 
@@ -1721,7 +1535,6 @@ Cover:
 -   Kannada to Devanagari.
 -   Tamil to Devanagari.
 -   Mixed-script lines.
--   Script switching after direct edits.
 -   Vedic mark preservation.
 -   Unsupported-character reporting.
 -   Round-trip conversion where reversible.
@@ -1729,22 +1542,20 @@ Cover:
 Round-trip tests must explicitly identify expected lossy conversions. Do
 not assume every script conversion is reversible.
 
-### 13.4 Segment model tests
+### 13.4 Line model tests
 
-Unit tests for every row of the tables in §4.2 and §4.3, the re-linking
-rule, regeneration (line and all), script switching, and undo/redo in
-both panes. These run without a browser.
+Unit tests that output line *n* is always the conversion of input line
+*n* after any edit, import, script switch, undo and redo, and that the
+output pane cannot be changed. The model tests run without a browser.
 
 ### 13.5 Editing and backend tests
 
 Cover:
 
--   Direct Unicode typing.
--   Pasting Unicode from websites and external applications.
--   Manual symbol insertion.
+-   Importing Unicode from websites and external applications.
+-   Symbol insertion into the input pane.
 -   Cursor movement, deletion and selection around combining marks.
--   Regenerate confirmation.
--   Save and reopen (`.paramaakshara.json` and `.txt`).
+-   Save and reopen (`.itx`), and opening `.txt` as ITRANS.
 -   Save conflict when the file changed on disk.
 -   Invalid UTF-8, BOM and CRLF handling.
 -   Path traversal and symlink escape attempts.
@@ -1786,20 +1597,15 @@ true.
 -   [ ] Two independently usable text panes are displayed.
 -   [ ] ITRANS can be typed in the input pane.
 -   [ ] The output updates in real time for supported sequences.
--   [ ] The output pane is fully editable.
--   [ ] A manual edit to one output line detaches only that line; other
-    lines keep following the source.
--   [ ] Manual output edits are never silently overwritten or deleted by
-    source changes.
--   [ ] Regenerate line and Regenerate all are available, with
-    confirmation.
+-   [ ] The output pane is read-only, and output line *n* is always the
+    conversion of input line *n*.
 
 ### Clipboard
 
 -   [ ] Cmd-C and Cmd-V work in both panes on macOS.
--   [ ] Unicode text can be pasted directly into the output pane.
--   [ ] Pasted output is not passed through ITRANS.
--   [ ] Vedic marks survive copy, paste, save and reopen.
+-   [ ] Unicode text can be imported into the input pane as ITRANS,
+    with lines that do not convert back exactly reported.
+-   [ ] Vedic marks survive save, reopen and copy.
 
 ### Scripts
 
@@ -1816,7 +1622,7 @@ true.
 -   [ ] The initial verified symbol inventory is documented per
     tradition.
 -   [ ] `_`, `'` and `'''` produce anudātta, svarita and double svarita in ITRANS input.
--   [ ] The symbol palette inserts supported characters.
+-   [ ] The symbol palette inserts supported characters into the input.
 -   [ ] Unicode code points are preserved.
 -   [ ] Supported font/browser combinations render the test corpus
     correctly (§13.6).
@@ -1824,11 +1630,10 @@ true.
 
 ### Documents
 
--   [ ] `.paramaakshara.json` save and open preserve source, output and segment
-    state.
--   [ ] UTF-8 plain-text save and open work.
+-   [ ] `.itx` save and open keep the ITRANS byte for byte.
+-   [ ] Export .txt, Export PDF and Export all write the output.
 -   [ ] Unsaved changes are indicated.
--   [ ] Undo and redo work in both panes as described in §4.7.
+-   [ ] Undo and redo work as described in §4.6.
 -   [ ] A save over a file changed on disk is detected and not applied
     silently.
 -   [ ] A document can be recovered after the browser or daemon is
@@ -1856,15 +1661,15 @@ Deliver:
 -   CodeMirror 6 spike (§8.1); confirm or switch.
 -   Go daemon: embedded assets, configuration, session security,
     single instance, logging.
--   Dual-pane interface with the segment model (§4), using a placeholder
-    converter that copies the source unchanged.
--   Editable Unicode output pane, clipboard support.
--   `.paramaakshara.json` and `.txt` open/save with revisions, backups and
-    recovery.
--   Undo/redo in both panes.
+-   Dual-pane interface (§4), using a placeholder converter that copies
+    the source unchanged.
+-   Clipboard support.
+-   Open/save with revisions, backups and recovery.
+-   Undo/redo.
 
-**Exit condition:** A useful Unicode editor exists, and the segment
-rules are proven with the placeholder converter.
+**Exit condition:** A useful editor exists with the placeholder
+converter. (Phase 1 was built with the segment model of TECH_SPEC 1.1,
+replaced in 1.2 by ADR 0006.)
 
 ### Phase 2 --- ITRANS
 
@@ -1897,7 +1702,7 @@ reopened and rendered correctly in the documented environment.
 Deliver:
 
 -   Script conversion integration.
--   Script selector and script switching (§4.6).
+-   Script selector and script switching (§4.5).
 -   Tamil superscript convention.
 -   Loss/ambiguity reporting.
 -   Vedic mark preservation tests.
@@ -1946,7 +1751,7 @@ Standard library packages used:
   -------------------------------- ------------------------------------------
   `net/http`                       Server; method-based routing in `ServeMux`
   `embed`, `io/fs`                 Embedded frontend assets
-  `encoding/json`                  API, config and project files
+  `encoding/json`                  API and config
   `os` (`os.Root`), `path/filepath` Confined file access
   `crypto/rand`, `crypto/subtle`   Session token generation and comparison
   `crypto/sha256`                  Document revisions
@@ -1971,7 +1776,7 @@ text.
 
   Package                              Licence        Use
   ------------------------------------ -------------- ------------------------
-  `@codemirror/state`                  MIT            Editor state, segment
+  `@codemirror/state`                  MIT            Editor state, line
                                                       tracking
   `@codemirror/view`                   MIT            Editor view, gutters,
                                                       decorations
@@ -1991,7 +1796,7 @@ Not shipped to users.
   TypeScript              Apache-2.0   Language
   Vite                    MIT          Frontend build and dev server
                                        (proxies `/api` to the daemon)
-  Vitest                  MIT          Unit tests (conversion, segment
+  Vitest                  MIT          Unit tests (conversion, line
                                        model)
   Playwright              Apache-2.0   End-to-end and screenshot tests in
                                        Chromium, Firefox and WebKit
@@ -2115,9 +1920,9 @@ changed.
   2    Where conversion runs   Decided       Frontend (TypeScript). The daemon
                                              does no conversion.
   3    Editor component        Decided       CodeMirror 6 (§8.1, ADR 0001).
-  4    Canonical script        Decided       None. Stored text is shown text;
-                                             script switching rewrites the
-                                             output explicitly (§2.4, §4.6).
+  4    Canonical script        Decided       None. The ITRANS is stored; the
+                                             output is regenerated in the
+                                             chosen script (§2.4, §4.5).
   5    Tamil convention        Decided       Superscript numerals at the end of
                                              the syllable; ृ/ऋ approximate and
                                              reported (`docs/script-
@@ -2131,7 +1936,9 @@ changed.
                                for v1        double svarita (§5.3). Further
                                              mappings are data-driven. Baraha
                                              compatibility is open.
-  8    Project file format     Decided       JSON `.paramaakshara.json` (§10.3).
+  8    Document file format    Decided       ITRANS `.itx` (§10.3, ADR 0006).
+                               (changed)     Replaced the JSON
+                                             `.paramaakshara.json` of 1.1.
   9    Font distribution       Decided       Bundle Noto Devanagari (OFL) as the
                                for           default; it is the only tested font
                                Devanagari    that renders U+1CDA. Kannada/Tamil
@@ -2141,11 +1948,13 @@ changed.
                                for v1        Revisit a webview shell (for example
                                              Wails) if file-dialog or
                                              shortcut limits hurt users.
-  12   Editing model           Decided       Line segments with per-line
-                                             detaching (§4). An input-method
-                                             model (ITRANS typed into a
-                                             composition box and inserted at the
-                                             output cursor) was considered and
+  12   Editing model           Decided       Output generated line by line from
+                               (changed)     the ITRANS and read-only (§4,
+                                             ADR 0006). Replaced 1.1's line
+                                             segments with per-line detaching.
+                                             An input-method model (ITRANS
+                                             typed into a composition box and
+                                             inserted at the output cursor) was
                                              rejected because it does not keep
                                              the source.
   13   HTTP port               Decided       Fixed default `7531`, configurable;
@@ -2166,6 +1975,9 @@ changed.
                                              tables; the text then goes
                                              through Import Unicode (§6.10,
                                              ADR 0005).
+  18   Editing the output      Decided       Not possible: corrections are made
+                                             in the ITRANS; the output is
+                                             copied or exported (ADR 0006).
 
 ------------------------------------------------------------------------
 
@@ -2177,10 +1989,9 @@ behaviour.
 The recommended sequence is:
 
 1.  Build the daemon, session security and configuration.
-2.  Build the dual-pane editor with the segment model and a placeholder
-    converter.
-3.  Make the output pane a reliable Unicode editor.
-4.  Verify copy/paste of Vedic Unicode from external sources.
+2.  Build the dual-pane editor with a placeholder converter.
+3.  Make the output pane a reliable read-only Unicode view.
+4.  Verify copy of Vedic Unicode to and import from external sources.
 5.  Implement save/open, recovery and undo/redo.
 6.  Add ITRANS conversion.
 7.  Add the Vedic symbol catalogue and insertion palette.
@@ -2233,14 +2044,13 @@ before integration.
 
 ## 21. Summary
 
-Paramaakshara is fundamentally a Unicode document editor with an
-ITRANS-assisted input pane.
+Paramaakshara is an ITRANS editor that shows, copies and exports the
+Unicode text as it is typed.
 
-The most important product decision is that the output pane is an
-independent, fully editable document. Transliteration is an input
-convenience, not the source of truth. Manual corrections detach only the
-lines they touch, so the user can keep typing ITRANS while correcting
-the output.
+The most important product decision is that the ITRANS is the
+document. The output is generated from it line by line and is
+read-only, so what is saved, what is shown and what is exported always
+agree; corrections are made in the ITRANS (ADR 0006).
 
 The project should prioritise:
 

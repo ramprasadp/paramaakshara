@@ -42,7 +42,7 @@ pull request. CI runs the same.
 cmd/paramaakshara/    the program: flags, startup, shutdown
 internal/             config, logging, HTTP server, documents, instance
 frontend/src/         the editor
-  model/              segment model, undo patches, project files
+  model/              line model (output line n from input line n)
   conversion/         ITRANS, Baraha, Clean up, script conversion
   editor/, ui/        CodeMirror wiring, dialogs, palette
 frontend/tests/       unit/ (Vitest) and e2e/ (Playwright)
@@ -58,8 +58,9 @@ conventions in one place; they apply to people too.
 -   **No silent changes to text.** No Unicode normalization. Pasted and
     opened text is kept exactly. Fixes are explicit commands with a
     preview and one undo step.
--   **Manual output is never lost** by edits in the other pane. The
-    segment rules in TECH_SPEC §4 are tested row by row; keep it that way.
+-   **The ITRANS is the document.** The output is generated from it line
+    by line and is read-only (TECH_SPEC §4, ADR 0006); documents are
+    saved as `.itx`.
 -   **Expected test results come from references, not from the code
     under test.** ITRANS and Vedic expectations come from verified texts
     (`testdata/`) or are written by hand. Never generate an expectation by
