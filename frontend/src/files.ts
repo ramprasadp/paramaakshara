@@ -4,22 +4,7 @@
 // (TECH_SPEC §10).
 
 import { barahaToItrans } from "./conversion/baraha";
-import { CONVERTER_VERSION } from "./conversion/itrans";
 import type { EditorDocument } from "./editor/document";
-import {
-  FormatError,
-  fileKind,
-  load,
-  lostOnSave,
-  serialise,
-  toProject,
-  type FileKind,
-  type Loaded,
-  type Settings,
-} from "./model/project";
-import { fromProject, projectScript } from "./model/project";
-import type { Script } from "./conversion/script";
-import { outputText, sourceText, type Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
 import { alertBox, closeDialog, confirmBox, el, show } from "./ui/dialog";
 import { printLines, rememberedOptions } from "./ui/pdf";
@@ -28,7 +13,6 @@ interface Current {
   name: string;
   root: string | null;
   path: string | null;
-  kind: FileKind;
   revision: string;
   bom: boolean;
   lineEnding: "lf" | "crlf";
@@ -38,43 +22,35 @@ const untitled = (): Current => ({
   name: "Untitled",
   root: null,
   path: null,
-  kind: "project",
   revision: "",
   bom: false,
   lineEnding: "lf",
 });
 
+/** Documents are saved as ITRANS text (§10.3). */
+const EXTENSION = ".itx";
+
 export class Files {
   private current = untitled();
-  /** Project serialisation at the last open or save; "" forces dirty. */
-  private saved: string;
+  /** ITRANS text at the last open or save; null forces dirty. */
+  private saved: string | null;
   private lastSnapshot = "";
   private quitting = false;
   /** Folders chosen in the system folder picker, until the page closes. */
   private picked: { root: string; name: string }[] = [];
   private lastExportRoot: string | null = null;
-  private settings: Settings;
   private readonly recoveryKey: string;
   private readonly onStatus: (name: string, dirty: boolean) => void;
 
   constructor(
     private readonly doc: EditorDocument,
-    private readonly ctx: Context,
     private readonly config: ClientConfig,
     onStatus: (name: string, dirty: boolean) => void,
-    /** Sets the output script before a project in that script is read. */
-    private readonly useScript: (script: Script) => void = () => {},
+    /** Opens Import Unicode with a file's text (§6.9). */
+    private readonly importUnicode: (text: string, title: string) => unknown,
   ) {
     this.onStatus = onStatus;
-    const e = config.editor;
-    // Only the document settings of §10.3 go into project files.
-    this.settings = {
-      input_scheme: e.input_scheme,
-      output_script: e.output_script,
-      tamil_convention: e.tamil_convention,
-      vedic_tradition: e.vedic_tradition,
-    };
-    this.saved = this.project();
+    this.saved = this.doc.sourceText();
     this.recoveryKey = recoveryKey();
     setInterval(
       () => void this.snapshot(),
@@ -89,34 +65,8 @@ export class Files {
     this.report();
   }
 
-  private project(): string {
-    return toProject(this.doc.segments, this.settings, CONVERTER_VERSION);
-  }
-
-  /** The output script is a document setting (§4.6), saved with it. */
-  setOutputScript(script: Script): void {
-    if (this.settings.output_script === script) return;
-    this.settings = { ...this.settings, output_script: script };
-    this.report();
-  }
-
-  private useProjectScript(json: string): void {
-    const s = projectScript(json);
-    if (s) this.useScript(s);
-  }
-
-  /** The document's Vedic tradition (§6.4); stored in the project file. */
-  tradition(): string {
-    return this.settings.vedic_tradition;
-  }
-
-  setTradition(id: string): void {
-    this.settings = { ...this.settings, vedic_tradition: id };
-    this.report();
-  }
-
   dirty(): boolean {
-    return this.project() !== this.saved;
+    return this.doc.sourceText() !== this.saved;
   }
 
   /** Called after every change to the document. */
@@ -139,51 +89,50 @@ export class Files {
     );
   }
 
-  private setDocument(loaded: Loaded, current: Current, clean: boolean): void {
-    this.doc.load(loaded.segments);
-    if (loaded.settings) this.settings = loaded.settings;
+  private setDocument(text: string, current: Current, clean: boolean): void {
+    this.doc.load(text);
     this.current = current;
-    this.saved = clean ? this.project() : "";
+    this.saved = clean ? text : null;
     this.report();
-    if (loaded.changedByConverter > 0) {
-      const n = loaded.changedByConverter;
-      void alertBox(
-        "Some lines were kept as saved",
-        `${n} ${n === 1 ? "line differs" : "lines differ"} from what the current converter produces. ` +
-          "The saved text was kept and marked out of date (✎!); use Regenerate to update it.",
-      );
-    }
   }
 
   async newDocument(): Promise<void> {
     if (!(await this.discardOk())) return;
-    this.setDocument(
-      { segments: [], settings: null, changedByConverter: 0 },
-      untitled(),
-      true,
-    );
+    this.setDocument("", untitled(), true);
     await this.dropSnapshot();
   }
 
+  /**
+   * Open (§10.1b): the system file picker, so any .itx or .txt file can
+   * be opened; the list of document folders where there is no picker
+   * (for example in the container).
+   */
   async open(): Promise<void> {
     if (!(await this.discardOk())) return;
-    const choice = await this.pickFile();
+    let choice: { root: string; path: string } | null;
+    try {
+      const p = await api.pickFile(this.current.root ?? this.config.roots[0]!);
+      if (!p) return;
+      if (!this.picked.some((x) => x.root === p.root))
+        this.picked.push({ root: p.root, name: p.name });
+      choice = { root: p.root, path: p.path };
+    } catch (e) {
+      if (!(e instanceof ApiError && e.code === "unavailable"))
+        return this.fail("Could not open", e);
+      choice = await this.pickFile();
+    }
     if (choice) await this.openFile(choice.root, choice.path);
   }
 
   private async openFile(root: string, path: string): Promise<void> {
     try {
       const d = await api.open(root, path);
-      const kind = fileKind(path);
-      if (kind === "project") this.useProjectScript(d.content);
-      const loaded = load(kind, d.content, this.ctx);
       this.setDocument(
-        loaded,
+        d.content,
         {
           name: basename(path),
           root,
           path,
-          kind,
           revision: d.revision,
           bom: d.bom,
           lineEnding: d.line_ending,
@@ -196,7 +145,10 @@ export class Files {
     }
   }
 
-  /** Lists the documents of a folder and lets the user pick one. */
+  /**
+   * Lists the documents of a folder and lets the user pick one; Open
+   * without a system file picker.
+   */
   private async pickFile(): Promise<{ root: string; path: string } | null> {
     let root = this.current.root ?? this.config.roots[0]!;
     let picked: { root: string; path: string } | null = null;
@@ -250,7 +202,12 @@ export class Files {
   }
 
   async save(): Promise<void> {
-    if (this.current.root === null || this.current.path === null)
+    // A .txt file is opened as ITRANS but saved only as .itx (§10.1).
+    if (
+      this.current.root === null ||
+      this.current.path === null ||
+      !this.current.path.toLowerCase().endsWith(EXTENSION)
+    )
       return this.saveAs();
     await this.write(
       this.current.root,
@@ -265,14 +222,16 @@ export class Files {
     );
     const input = el("input", {
       type: "text",
-      value: this.current.path ?? suggestedName(this.current),
+      value:
+        (this.current.path && itxPath(this.current.path)) ??
+        suggestedName(this.current),
       className: "path",
       spellcheck: false,
     });
     const hint = el(
       "p",
       { className: "muted" },
-      "Use .paramaakshara.json to keep the ITRANS, the output and the edit markers; .txt for the Unicode output only; .itx for ITRANS only.",
+      "Saves the ITRANS as a .itx file. To keep the Unicode output, copy it or use Export .txt, Export PDF or Export all.",
     );
     const ok = await show(
       "Save as",
@@ -283,8 +242,8 @@ export class Files {
       ],
     );
     if (!ok) return;
-    const path = input.value.trim();
-    if (path === "") return;
+    const path = itxPath(input.value.trim());
+    if (path === null) return;
     await this.write(folder.select.value, path, "", true);
   }
 
@@ -295,17 +254,8 @@ export class Files {
     baseRevision: string,
     isNew = false,
   ): Promise<void> {
-    const kind = fileKind(path);
-    const lost = lostOnSave(kind, this.doc.segments);
-    if (lost && !(await confirmBox("Save as plain file?", lost, "Save")))
-      return;
     const same = root === this.current.root && path === this.current.path;
-    const content = serialise(
-      kind,
-      this.doc.segments,
-      this.settings,
-      CONVERTER_VERSION,
-    );
+    const content = this.doc.sourceText();
     try {
       const revision = await api.save({
         root,
@@ -320,12 +270,11 @@ export class Files {
         name: basename(path),
         root,
         path,
-        kind,
         revision,
       };
       if (!same)
         this.current = { ...this.current, bom: false, lineEnding: "lf" };
-      this.saved = this.project();
+      this.saved = content;
       this.report();
       await this.dropSnapshot();
     } catch (e) {
@@ -380,10 +329,14 @@ export class Files {
     }
   }
 
-  /** Imports a file chosen from anywhere on the computer, in the browser. */
+  /**
+   * Imports a file chosen from anywhere on the computer, in the browser,
+   * as a new untitled document: ITRANS as it is, Baraha source rewritten
+   * in ITRANS, or Unicode text through Import Unicode (§6.9).
+   */
   async importFile(): Promise<void> {
     if (!(await this.discardOk())) return;
-    const input = el("input", { type: "file", accept: ".txt,.itx,.json" });
+    const input = el("input", { type: "file", accept: ".txt,.itx" });
     const file = await new Promise<File | null>((resolve) => {
       input.addEventListener(
         "change",
@@ -405,35 +358,35 @@ export class Files {
       );
       return;
     }
-    const bom = text.startsWith("﻿");
-    const lineEnding = text.includes("\r\n") ? "crlf" : "lf";
+    const bom = text.startsWith("\uFEFF");
+    const lineEnding: Current["lineEnding"] = text.includes("\r\n")
+      ? "crlf"
+      : "lf";
     text = (bom ? text.slice(1) : text).replaceAll("\r\n", "\n");
-    let kind = fileKind(file.name);
-    if (kind === "text") {
-      const as = await show<FileKind | "baraha">(
-        "Import as",
-        [`How should ${file.name} be read?`],
-        [
-          { label: "Baraha source", value: "baraha" },
-          { label: "ITRANS input", value: "itrans" },
-          { label: "Unicode output", value: "text", primary: true },
-        ],
-      );
-      if (!as) return;
-      if (as === "baraha") text = barahaToItrans(text);
-      kind = as === "baraha" ? "itrans" : as;
+    const as = file.name.toLowerCase().endsWith(EXTENSION)
+      ? "itrans"
+      : await show<"itrans" | "baraha" | "unicode">(
+          "Import as",
+          [`How should ${file.name} be read?`],
+          [
+            { label: "Baraha source", value: "baraha" },
+            { label: "Unicode text", value: "unicode" },
+            { label: "ITRANS", value: "itrans", primary: true },
+          ],
+        );
+    if (!as) return;
+    // Not saved anywhere yet: Save asks for a folder and name.
+    const current = { ...untitled(), name: file.name, bom, lineEnding };
+    if (as === "unicode") {
+      this.setDocument("", current, false);
+      await this.importUnicode(text, `Import ${file.name}`);
+      return;
     }
-    try {
-      const loaded = load(kind, text, this.ctx);
-      // Not saved anywhere yet: Save asks for a folder and name.
-      this.setDocument(
-        loaded,
-        { ...untitled(), name: file.name, kind, bom, lineEnding },
-        false,
-      );
-    } catch (e) {
-      await this.fail(`Could not import ${file.name}`, e);
-    }
+    this.setDocument(
+      as === "baraha" ? barahaToItrans(text) : text,
+      current,
+      false,
+    );
   }
 
   documentName(): string {
@@ -442,7 +395,7 @@ export class Files {
 
   /** Downloads the Unicode output as a plain-text file. */
   exportText(): void {
-    const blob = new Blob([outputText(this.doc.segments)], {
+    const blob = new Blob([this.doc.outputText()], {
       type: "text/plain;charset=utf-8",
     });
     const a = el("a", {
@@ -546,7 +499,7 @@ export class Files {
     const root = folder.select.value;
     const folderName = this.folderName(root);
     this.lastExportRoot = root;
-    const lines = outputText(this.doc.segments).split("\n");
+    const lines = this.doc.outputText().split("\n");
     const text = (path: string, content: string) => (rev: string) =>
       api.save({
         root,
@@ -561,11 +514,11 @@ export class Files {
     const exports = [
       {
         path: `${base}.itrans.txt`,
-        send: text(`${base}.itrans.txt`, sourceText(this.doc.segments)),
+        send: text(`${base}.itrans.txt`, this.doc.sourceText()),
       },
       {
         path: `${base}.uni.txt`,
-        send: text(`${base}.uni.txt`, outputText(this.doc.segments)),
+        send: text(`${base}.uni.txt`, this.doc.outputText()),
       },
       {
         path: `${base}.pdf`,
@@ -669,8 +622,8 @@ export class Files {
 
   private async snapshot(keepalive = false): Promise<void> {
     if (!this.dirty()) return;
-    const project = this.project();
-    if (project === this.lastSnapshot) return;
+    const itrans = this.doc.sourceText();
+    if (itrans === this.lastSnapshot) return;
     try {
       await api.putSnapshot(
         this.recoveryKey,
@@ -679,11 +632,12 @@ export class Files {
           root: this.current.root ?? undefined,
           path: this.current.path ?? undefined,
           base_revision: this.current.revision,
-          project: JSON.parse(project) as unknown,
+          project: { itrans },
         },
-        keepalive && project.length < 60_000, // browsers cap keepalive bodies at 64 KB
+        // Browsers cap keepalive bodies at 64 KB.
+        keepalive && JSON.stringify(itrans).length < 60_000,
       );
-      this.lastSnapshot = project;
+      this.lastSnapshot = itrans;
     } catch {
       // Retried at the next interval.
     }
@@ -725,18 +679,19 @@ export class Files {
       if (choice !== "restore") continue;
       try {
         const full = await api.snapshot(s.key);
-        const json = JSON.stringify(full.project);
-        this.useProjectScript(json);
-        const loaded = fromProject(json, this.ctx);
-        const kind = s.path ? fileKind(s.path) : "project";
+        const itrans = (full.project as { itrans?: unknown } | undefined)
+          ?.itrans;
+        if (typeof itrans !== "string")
+          throw new Error(
+            "This snapshot was made by an older version of Paramaakshara and cannot be restored.",
+          );
         this.setDocument(
-          loaded,
+          itrans,
           {
             ...untitled(),
             name: s.name,
             root: s.root ?? null,
             path: s.path ?? null,
-            kind,
             revision: s.base_revision ?? "",
           },
           false,
@@ -753,12 +708,7 @@ export class Files {
   }
 
   private async fail(title: string, e: unknown): Promise<void> {
-    const message =
-      e instanceof ApiError || e instanceof FormatError
-        ? e.message
-        : e instanceof Error
-          ? e.message
-          : String(e);
+    const message = e instanceof Error ? e.message : String(e);
     await alertBox(title, message);
   }
 }
@@ -781,19 +731,22 @@ function basename(path: string): string {
 }
 
 function suggestedName(c: Current): string {
-  const base = c.name.replace(/\.(paramaakshara\.json|txt|itx|json)$/i, "");
-  return `${base === "Untitled" ? "untitled" : base}.paramaakshara.json`;
+  const base = c.name.replace(/\.(itrans\.txt|txt|itx)$/i, "");
+  return `${base === "Untitled" ? "untitled" : base}${EXTENSION}`;
+}
+
+/** A Save as name as a .itx path (a .txt ending is replaced); null if empty. */
+export function itxPath(name: string): string | null {
+  const base = name.replace(/\.(itrans\.txt|txt|itx)$/i, "");
+  return base === "" ? null : base + EXTENSION;
 }
 
 /** A document path or name without its file extension, for Export all. */
 function exportBase(name: string): string {
-  const base = name.replace(
-    /\.(paramaakshara\.json|itrans\.txt|uni\.txt|txt|itx|json|pdf)$/i,
-    "",
-  );
+  const base = name.replace(/\.(itrans\.txt|uni\.txt|txt|itx|pdf)$/i, "");
   return base === "Untitled" ? "untitled" : base;
 }
 
 function textName(name: string): string {
-  return name.replace(/\.(paramaakshara\.json|txt|itx|json)$/i, "") + ".txt";
+  return name.replace(/\.(itrans\.txt|txt|itx)$/i, "") + ".txt";
 }

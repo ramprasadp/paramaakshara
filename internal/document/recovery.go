@@ -14,7 +14,8 @@ import (
 )
 
 // Snapshot is unsaved work sent by the browser (spec §10.4). Project is
-// the project file content as JSON; the daemon does not interpret it.
+// JSON written by the frontend (the ITRANS text); the daemon does not
+// interpret it.
 type Snapshot struct {
 	Key          string          `json:"key"`
 	SavedAt      time.Time       `json:"saved_at"`

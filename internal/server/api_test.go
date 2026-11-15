@@ -400,3 +400,47 @@ func TestImportLegacyPDFRejects(t *testing.T) {
 		t.Errorf("too large: %d %v", status, body)
 	}
 }
+
+func TestPickDocument(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "lakshmi.itx")
+	os.WriteFile(file, []byte("shrIH"), 0o644)
+	var start string
+	result, err := file, error(nil)
+	f := newAPIFixtureWith(t, func(o *Options) {
+		o.PickFile = func(_ context.Context, s string) (string, error) {
+			start = s
+			return result, err
+		}
+	})
+	status, body := f.call(t, "POST", "/api/files/pick", map[string]any{"start": "Documents"})
+	root, _ := body["root"].(string)
+	if status != http.StatusOK || !strings.HasPrefix(root, document.PickedPrefix) ||
+		body["name"] != filepath.Base(dir) || body["path"] != "lakshmi.itx" {
+		t.Fatalf("status %d body %v", status, body)
+	}
+	if start != f.docs {
+		t.Errorf("picker started in %q, want the Documents folder", start)
+	}
+	// The file opens through its folder's opaque name.
+	status, body = f.call(t, "GET", "/api/document?root="+root+"&path=lakshmi.itx", nil)
+	if status != http.StatusOK || body["content"] != "shrIH" {
+		t.Fatalf("open picked file: %d %v", status, body)
+	}
+
+	result = filepath.Join(dir, "notes.md")
+	if status, body := f.call(t, "POST", "/api/files/pick", map[string]any{}); status != http.StatusBadRequest || code(body) != "bad_request" {
+		t.Errorf("unsupported type: %d %v", status, body)
+	}
+	result, err = "", folder.ErrCancelled
+	if status, _ := f.call(t, "POST", "/api/files/pick", map[string]any{}); status != http.StatusNoContent {
+		t.Errorf("cancelled: status %d", status)
+	}
+}
+
+func TestPickDocumentWithoutPicker(t *testing.T) {
+	f := newAPIFixture(t)
+	if status, body := f.call(t, "POST", "/api/files/pick", map[string]any{}); status != http.StatusServiceUnavailable || code(body) != "unavailable" {
+		t.Errorf("%d %v", status, body)
+	}
+}

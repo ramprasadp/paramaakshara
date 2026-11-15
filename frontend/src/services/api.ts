@@ -144,6 +144,17 @@ export const api = {
       "/api/folders/pick",
       { start },
     ).then((r) => r ?? null),
+  /**
+   * Shows the file picker on this computer; null when cancelled. The
+   * file's folder becomes a picked folder (root, name); path is the file
+   * in it.
+   */
+  pickFile: (start: string) =>
+    call<{ root: string; name: string; path: string } | undefined>(
+      "POST",
+      "/api/files/pick",
+      { start },
+    ).then((r) => r ?? null),
   /** Converts a PDF typeset with legacy fonts; nothing is stored. */
   importLegacyPdf: (pdf: Blob) =>
     call<LegacyDocument>("POST", "/api/import/legacy-pdf", pdf),

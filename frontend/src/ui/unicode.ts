@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Pasting Unicode text (Devanagari, Kannada or Tamil): shows the text
-// rewritten in ITRANS and how it converts, then inserts the ITRANS at the
-// input cursor (TECH_SPEC §6.9).
+// Pasting Unicode text (Devanagari, Kannada or Tamil): offers the Clean up
+// fixes (TECH_SPEC §6.8), shows the text rewritten in ITRANS and how it
+// converts, then inserts the ITRANS at the input cursor (§6.9).
 
+import { ALL_FIXES, cleanup, type Fix } from "../conversion/cleanup";
 import { scriptOf, type Script } from "../conversion/script";
 import { unicodeToItrans, type Options } from "../conversion/unicode";
 import type { EditorDocument } from "../editor/document";
@@ -11,6 +12,16 @@ import type { LinePreview } from "./baraha";
 import { el, show } from "./dialog";
 
 const PREVIEW_LINES = 6;
+
+const FIX_LABELS: Record<Fix, string> = {
+  "accent-order":
+    "Accent before anusvara, visarga or chandrabindu → sign first (भ\u0942म\u093F\u0951\u0902 → भ\u0942म\u093F\u0902\u0951)",
+  "double-svarita": "Baraha double svarita U+0953 → U+1CDA",
+  "sanskrit-e-o":
+    "Short e/o (\u0946 \u094A ऎ ऒ) → Sanskrit e/o (\u0947 \u094B ए ओ)",
+  visarga: "Colon after Devanagari or Kannada → visarga (\u0903 \u0C83)",
+  "taittiriya-anusvara": "Taittirīya (ग\u094Dम\u094D) (ग\u094Dग\u094D) → ꣳ ꣴ",
+};
 
 /** The Indic script the text is written in, or null if none is used. */
 export function indicScript(text: string): Script | null {
@@ -70,8 +81,35 @@ export async function unicodeDialog(
     value: start?.text ?? "",
   });
   const preview = el("div", { className: "unicode-preview" });
+  // Clean up (§6.8): the fixes found in the text, all chosen at first.
+  const fixes = el("div", { className: "cleanup-fixes" });
+  const declined = new Set<Fix>();
+  const chosen = () => ALL_FIXES.filter((f) => !declined.has(f));
   const toItrans = (text: string) =>
-    text.split("\n").map((line) => unicodeToItrans(line, opts));
+    cleanup(text, chosen())
+      .text.split("\n")
+      .map((line) => unicodeToItrans(line, opts));
+  const renderFixes = () => {
+    const counts = cleanup(input.value).counts;
+    const found = ALL_FIXES.filter((f) => counts[f] > 0);
+    fixes.replaceChildren(
+      ...(found.length > 0
+        ? [el("p", { className: "muted" }, "Clean up before converting:")]
+        : []),
+      ...found.map((f) => {
+        const box = el("input", {
+          type: "checkbox",
+          checked: !declined.has(f),
+        });
+        box.addEventListener("change", () => {
+          if (box.checked) declined.delete(f);
+          else declined.add(f);
+          render();
+        });
+        return el("label", {}, box, `${FIX_LABELS[f]} — ${counts[f]}`);
+      }),
+    );
+  };
   const render = () => {
     const lines = toItrans(input.value);
     const changed = lines.filter((l) => !l.exact).length;
@@ -114,7 +152,11 @@ export async function unicodeDialog(
     if (lines.length > PREVIEW_LINES)
       preview.append(el("p", { className: "muted" }, "…"));
   };
-  input.addEventListener("input", render);
+  input.addEventListener("input", () => {
+    renderFixes();
+    render();
+  });
+  renderFixes();
   render();
 
   const choice = await show(
@@ -125,6 +167,7 @@ export async function unicodeDialog(
     [
       "Devanagari, Kannada or Tamil text is rewritten in ITRANS. Lines marked ⚠ will change when converted (for example an accent before an anusvara is moved after it); hover over a line for details.",
       input,
+      fixes,
       preview,
     ],
     [

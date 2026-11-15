@@ -7,6 +7,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const undo = "ControlOrMeta+z";
+const redo = "ControlOrMeta+Shift+z";
 
 async function texts(page: Page) {
   return page.evaluate(() => {
@@ -91,41 +92,35 @@ test("Vedic accents and the conversion-error marker", async ({ page }) => {
   );
 });
 
-test("a manual output edit detaches only that line", async ({ page }) => {
+test("the output pane is read-only", async ({ page }) => {
   await typeSource(page, "कक\nखख");
   await select(page, "output", 2); // end of line 1
   await page.keyboard.type("!");
-  expect((await texts(page)).output).toBe("कक!\nखख");
-  expect(await markers(page, "output")).toEqual(["✎", ""]);
-  expect(await markers(page, "source")).toEqual(["✎", ""]);
-  // Line 2 still follows the source; line 1 keeps the manual edit.
-  await select(page, "source", 5);
-  await page.keyboard.type("घ");
-  await select(page, "source", 2);
-  await page.keyboard.type("च");
-  expect(await texts(page)).toEqual({ source: "ककच\nखखघ", output: "कक!\nखखघ" });
-  expect(await markers(page, "output")).toEqual(["✎!", ""]);
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Delete");
+  expect(await texts(page)).toEqual({ source: "कक\nखख", output: "कक\nखख" });
 });
 
-test("Regenerate line restores the generated output", async ({ page }) => {
-  await typeSource(page, "कक\nखख");
-  await select(page, "output", 2);
-  await page.keyboard.type("!");
-  await select(page, "output", 0);
-  await page.click("#regen-line");
-  expect((await texts(page)).output).toBe("कक\nखख");
-  expect(await markers(page, "output")).toEqual(["", ""]);
-  // Regeneration is one undo step in the output pane.
-  await select(page, "output", 0);
-  await page.keyboard.press(undo);
-  expect((await texts(page)).output).toBe("कक!\nखख");
-});
-
-test("deleting an output line removes its source; undo restores both", async ({
+test("undo in the output pane undoes the last ITRANS edit", async ({
   page,
 }) => {
+  // Two separate undo steps.
+  await page.evaluate(() => {
+    const d = window.paramaakshara.doc;
+    d.insertInSource("ka");
+    d.insertInSource("\nkha");
+  });
+  await select(page, "output", 0);
+  await page.keyboard.press(undo);
+  expect(await texts(page)).toEqual({ source: "ka", output: "क" });
+  await page.keyboard.press(redo);
+  expect(await texts(page)).toEqual({ source: "ka\nkha", output: "क\nख" });
+});
+
+test("deleting an input line removes its output line", async ({ page }) => {
   await typeSource(page, "कक\nखख\nगग");
-  await select(page, "output", 3, 6); // "खख\n"
+  await select(page, "source", 3, 6); // "खख\n"
   await page.keyboard.press("Backspace");
   expect(await texts(page)).toEqual({ source: "कक\nगग", output: "कक\nगग" });
   await page.keyboard.press(undo);
@@ -133,42 +128,6 @@ test("deleting an output line removes its source; undo restores both", async ({
     source: "कक\nखख\nगग",
     output: "कक\nखख\nगग",
   });
-  expect(await markers(page, "output")).toEqual(["", "", ""]);
-});
-
-test("undoing a manual edit re-links the line", async ({ page }) => {
-  await typeSource(page, "कक");
-  await select(page, "output", 2);
-  await page.keyboard.type("!");
-  expect(await markers(page, "output")).toEqual(["✎"]);
-  await page.keyboard.press(undo);
-  expect((await texts(page)).output).toBe("कक");
-  expect(await markers(page, "output")).toEqual([""]);
-});
-
-test("undo in the input pane keeps manual output edits", async ({ page }) => {
-  await typeSource(page, "कक\nखख"); // "\nखख" is the last undo step
-  await select(page, "output", 5);
-  await page.keyboard.type("!");
-  await select(page, "source", 5);
-  await page.keyboard.press(undo);
-  // The typed line is gone from the input; its manual output stays.
-  expect(await texts(page)).toEqual({ source: "कक", output: "कक\nखख!" });
-  expect(await markers(page, "output")).toEqual(["", "+"]);
-});
-
-test("Enter at the end of an output line adds an output-only line", async ({
-  page,
-}) => {
-  await typeSource(page, "कक\nखख");
-  await select(page, "output", 2);
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("note");
-  expect(await texts(page)).toEqual({
-    source: "कक\nखख",
-    output: "कक\nnote\nखख",
-  });
-  expect(await markers(page, "output")).toEqual(["", "+", ""]);
 });
 
 test("the reference sheet shows hard-to-type letters and accents", async ({
@@ -184,16 +143,9 @@ test("the reference sheet shows hard-to-type letters and accents", async ({
   await expect(page.locator("dialog[open]")).toHaveCount(0);
 });
 
-test("status bar counts edited and output-only lines", async ({ page }) => {
-  await typeSource(page, "कक\nखख");
-  await select(page, "output", 2);
-  await page.keyboard.type("!");
-  await page.keyboard.press("End");
-  await select(page, "output", 6);
-  await page.keyboard.press("Enter");
-  await expect(page.locator("#counts")).toHaveText(
-    "3 lines · 1 edited · 1 output-only",
-  );
+test("status bar counts lines", async ({ page }) => {
+  await typeSource(page, "ka\nkha");
+  await expect(page.locator("#counts")).toHaveText("2 lines");
 });
 
 test("the page title is paramaakshara", async ({ page }) => {
@@ -202,7 +154,7 @@ test("the page title is paramaakshara", async ({ page }) => {
   await expect(page).toHaveTitle("paramaakshara");
 });
 
-/** Line numbers (1-based) highlighted as the current segment in a pane. */
+/** Line numbers (1-based) highlighted as the current line in a pane. */
 async function paired(page: Page, pane: "source" | "output") {
   return page.evaluate((pane) => {
     const d = window.paramaakshara.doc;

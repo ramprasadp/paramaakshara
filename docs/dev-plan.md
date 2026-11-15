@@ -10,8 +10,7 @@ There is no database. Everything is a file or bundled data:
 
   Data                         Where
   ---------------------------- ---------------------------------------------
-  Documents                    `.paramaakshara.json` / `.txt` in document
-                               folders (§10)
+  Documents                    ITRANS `.itx` in document folders (§10.3)
   Settings                     `config.json` (§9.6)
   Recovery, backups            Files in the app data directory (§10.4)
   Mapping tables               JSON bundled into the frontend, read-only
@@ -170,6 +169,23 @@ draft release, signing and notarizing when the secrets exist. CI runs
 the browser tests. README (install), CONTRIBUTING, CHANGELOG and
 `docs/release.md` written. A clean copy of the repository builds and
 passes all tests by following CONTRIBUTING.
+
+### M10 --- Generated output, ITRANS files (ADR 0006)
+
+-   Output pane read-only; output line n is the conversion of input
+    line n (§4). Remove the segment states, their markers, Regenerate,
+    output undo and `.paramaakshara.json` with their code and tests.
+-   Save and Save as write `.itx`; Open reads `.itx` and `.txt` as
+    ITRANS (§10.1, §10.3). Recovery snapshots hold the ITRANS.
+-   Output script and tradition remembered in the browser (§4.5, §6.4).
+-   Symbols palette inserts into the input: ITRANS, or the character
+    (§6.4). Clean up moves into Import Unicode (§6.8).
+
+**Status:** done. `editor/document.ts` regenerates the read-only output
+from the input; `model/lines.ts` replaces the segment model, patches,
+undo and project files. The daemon lists and saves `.itx` and `.txt`
+only. Recovery snapshots hold `{"itrans": …}`; older snapshots cannot
+be restored. Screenshot baselines need review (toolbar changed).
 
 ## Open inputs
 

@@ -1,24 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Connects the segment model to the two editor panes (TECH_SPEC §4).
-//
-// Each user edit in a pane becomes a segment patch, attached to the same
-// transaction as an effect. CodeMirror's history records the patch with
-// the text change and replays its inverse on undo, so undo restores the
-// segments exactly (§4.7). The other pane is then brought in line with a
-// transaction that is not added to its history.
+// The two editor panes (TECH_SPEC §4, ADR 0006). The input pane holds the
+// document, the ITRANS text. The output pane is read-only: output line n
+// is always the conversion of input line n, so it is regenerated after
+// every input change and has no history of its own. Undo in either pane
+// undoes the last input edit (§4.6).
 
 import {
-  Annotation,
   EditorState,
   RangeSet,
   RangeSetBuilder,
   StateEffect,
   StateField,
   Transaction,
-  type ChangeSet,
   type Extension,
-  type TransactionSpec,
 } from "@codemirror/state";
 import {
   Decoration,
@@ -35,40 +30,19 @@ import {
   defaultKeymap,
   history,
   historyKeymap,
-  invertedEffects,
+  redo,
+  undo,
 } from "@codemirror/commands";
 
-import { apply, diff, invert, type Patch } from "../model/patch";
-import type { Script } from "../conversion/script";
-import { applyPanePatch, type Pane } from "../model/undo";
-import {
-  applyOutputChange,
-  applySourceChange,
-  kind,
-  manualCount,
-  outputText,
-  regenerate,
-  sourceText,
-  type Context,
-  type Kind,
-  type Segment,
-} from "../model/segments";
+import { outputOf } from "../model/lines";
 
-export type { Pane };
+export type Pane = "source" | "output";
 
 export interface Counts {
-  segments: number;
-  detached: number;
-  stale: number;
-  outputOnly: number;
+  lines: number;
   errors: number;
 }
 
-/** Marks transactions that only mirror the model into a pane. */
-const mirror = Annotation.define<boolean>();
-const patchEffect = StateEffect.define<Patch>();
-/** A change of output script, recorded in the output history (§4.6). */
-const scriptEffect = StateEffect.define<{ from: Script; to: Script }>();
 const setMarkers = StateEffect.define<RangeSet<GutterMarker>>();
 
 const markersField = StateField.define<RangeSet<GutterMarker>>({
@@ -79,8 +53,8 @@ const markersField = StateField.define<RangeSet<GutterMarker>>({
   },
 });
 
-// The lines of the segments at the cursor or selection, in both panes,
-// while either pane has focus (§4.4).
+// The lines at the cursor or selection, in both panes, while either pane
+// has focus (§4.4).
 const setPaired = StateEffect.define<DecorationSet>();
 const pairedField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
@@ -92,67 +66,33 @@ const pairedField = StateField.define<DecorationSet>({
 });
 const pairedLine = Decoration.line({ class: "paired-line" });
 
-class Marker extends GutterMarker {
-  constructor(
-    readonly text: string,
-    readonly title: string,
-    readonly cls: string,
-  ) {
+class ErrorMarker extends GutterMarker {
+  constructor(readonly title: string) {
     super();
   }
   override eq(other: GutterMarker): boolean {
-    return (
-      other instanceof Marker &&
-      other.text === this.text &&
-      other.title === this.title
-    );
+    return other instanceof ErrorMarker && other.title === this.title;
   }
   override toDOM(): Node {
     const span = document.createElement("span");
-    span.className = `seg-marker ${this.cls}`;
-    span.textContent = this.text;
+    span.className = "seg-marker seg-error";
+    span.textContent = "⚠";
     span.title = this.title;
     return span;
   }
 }
 
-// Gutter markers from §4.4.
-const markers: Partial<Record<Kind, Marker>> = {
-  detached: new Marker("✎", "Output edited manually", "seg-detached"),
-  stale: new Marker(
-    "✎!",
-    "Source changed after the manual edit; Regenerate is available",
-    "seg-stale",
-  ),
-  "output-only": new Marker(
-    "+",
-    "Output only; no ITRANS source",
-    "seg-output-only",
-  ),
-};
-
-function errorMarker(problems: string[]): Marker {
-  return new Marker("⚠", `Cannot convert: ${problems.join("; ")}`, "seg-error");
-}
-
 export interface Options {
   sourceParent: HTMLElement;
   outputParent: HTMLElement;
-  context: Context;
-  segments?: Segment[];
-  /** Called after every change to the segments. */
+  /** Converts one ITRANS line to one output line in the output script. */
+  convert: (line: string) => string;
+  /** Conversion problems in an ITRANS line, shown as ⚠ (§4.4). */
+  issues?: (line: string) => string[];
+  /** Initial ITRANS text. */
+  text?: string;
+  /** Called after every change to the document or its output. */
   onChange?: (counts: Counts) => void;
-  /** Asked before regeneration replaces manual output. */
-  confirm?: (message: string) => boolean;
-  /** Conversion problems in a source line, shown as ⚠ (§4.4). */
-  issues?: (source: string) => string[];
-  /** Initial output script. */
-  script?: Script;
-  /**
-   * Called whenever the output script changes, including by undo, before
-   * the segments change. context.convert must then write that script.
-   */
-  onScript?: (script: Script) => void;
   /**
    * Called with text pasted into the input pane; returning true means the
    * caller handles it (e.g. offers to convert Baraha text).
@@ -161,105 +101,96 @@ export interface Options {
 }
 
 export class EditorDocument {
-  segments: Segment[];
   readonly source: EditorView;
   readonly output: EditorView;
-  private readonly ctx: Context;
+  private readonly convert: (line: string) => string;
+  private readonly issues: (line: string) => string[];
   private readonly onChange: (counts: Counts) => void;
-  private readonly confirm: (message: string) => boolean;
-  private readonly issues: (source: string) => string[];
-  private readonly onScript: (script: Script) => void;
   private readonly onSourcePaste: (text: string) => boolean;
-  script: Script;
-  private lastFocused: Pane = "source";
   private refreshQueued = false;
   private pairQueued = false;
 
   constructor(opts: Options) {
-    this.ctx = opts.context;
-    this.segments = opts.segments ?? [];
-    this.onChange = opts.onChange ?? (() => {});
-    this.confirm = opts.confirm ?? (() => true);
+    this.convert = opts.convert;
     this.issues = opts.issues ?? (() => []);
-    this.onScript = opts.onScript ?? (() => {});
+    this.onChange = opts.onChange ?? (() => {});
     this.onSourcePaste = opts.onSourcePaste ?? (() => false);
-    this.script = opts.script ?? "devanagari";
+    const text = opts.text ?? "";
     this.source = new EditorView({
       parent: opts.sourceParent,
-      state: EditorState.create({
-        doc: sourceText(this.segments),
-        extensions: this.extensions("source"),
-      }),
+      state: this.sourceState(text),
     });
     this.output = new EditorView({
       parent: opts.outputParent,
-      state: EditorState.create({
-        doc: outputText(this.segments),
-        extensions: this.extensions("output"),
-      }),
+      state: this.outputState(text),
     });
     this.refresh();
   }
 
-  /** Regenerates linked outputs that differ from the current converter. */
-  private regenerateLinked(segs: Segment[]): Segment[] {
-    return segs.map((s) => {
-      if (!s.linked) return s;
-      const output = this.ctx.convert(s.source!);
-      return output === s.output ? s : { ...s, output };
-    });
+  /** The document: the ITRANS text of the input pane. */
+  sourceText(): string {
+    return this.source.state.doc.toString();
   }
 
-  /** Sets the output script without touching the text (e.g. before loading a file). */
-  setScript(script: Script): void {
-    this.script = script;
-    this.onScript(script);
-  }
-
-  /**
-   * Changes the output script as one undoable step in the output history
-   * (§4.6). compute receives the segments once context.convert writes the
-   * new script, and returns the converted segments.
-   */
-  switchScript(to: Script, compute: (segs: Segment[]) => Segment[]): void {
-    const from = this.script;
-    if (to === from) return;
-    this.setScript(to);
-    const next = compute(this.segments);
-    const p = diff(this.segments, next);
-    this.output.dispatch({
-      changes: textChange(this.output.state.doc.toString(), outputText(next)),
-      effects: [
-        scriptEffect.of({ from, to }),
-        ...(p ? [patchEffect.of(p)] : []),
-      ],
-      userEvent: "script",
-    });
+  /** The Unicode output, as shown. */
+  outputText(): string {
+    return this.output.state.doc.toString();
   }
 
   /** Replaces the whole document, e.g. after opening a file. Clears undo history. */
-  load(segments: Segment[]): void {
-    this.segments = segments;
-    this.source.setState(
-      EditorState.create({
-        doc: sourceText(segments),
-        extensions: this.extensions("source"),
-      }),
-    );
-    this.output.setState(
-      EditorState.create({
-        doc: outputText(segments),
-        extensions: this.extensions("output"),
-      }),
-    );
+  load(text: string): void {
+    this.source.setState(this.sourceState(text));
+    this.output.setState(this.outputState(text));
     this.refresh();
   }
 
-  private view(pane: Pane): EditorView {
-    return pane === "source" ? this.source : this.output;
+  private sourceState(text: string): EditorState {
+    return EditorState.create({
+      doc: text,
+      extensions: [
+        ...this.common("source"),
+        history(),
+        keymap.of([...defaultKeymap, ...historyKeymap]),
+        EditorView.domEventHandlers({
+          paste: (event) => {
+            const text = event.clipboardData?.getData("text/plain");
+            if (!text || !this.onSourcePaste(text)) return false;
+            event.preventDefault();
+            return true;
+          },
+        }),
+      ],
+    });
   }
 
-  private extensions(pane: Pane): Extension[] {
+  private outputState(text: string): EditorState {
+    const src = () => this.source;
+    return EditorState.create({
+      doc: outputOf(text, this.convert),
+      extensions: [
+        ...this.common("output"),
+        EditorState.readOnly.of(true),
+        // The output has no history: undo and redo act on the input.
+        keymap.of([
+          { key: "Mod-z", run: () => undo(src()), preventDefault: true },
+          {
+            key: "Mod-y",
+            mac: "Mod-Shift-z",
+            run: () => redo(src()),
+            preventDefault: true,
+          },
+          {
+            linux: "Ctrl-Shift-z",
+            run: () => redo(src()),
+            preventDefault: true,
+          },
+          ...defaultKeymap,
+        ]),
+      ],
+    });
+  }
+
+  private common(pane: Pane): Extension[] {
     return [
       lineNumbers(),
       markersField,
@@ -268,103 +199,55 @@ export class EditorDocument {
         class: "seg-gutter",
         markers: (v) => v.state.field(markersField),
       }),
-      history(),
       drawSelection(),
       EditorView.lineWrapping,
-      keymap.of([...defaultKeymap, ...historyKeymap]),
-      // Undo restores the script before the segments that depend on it.
-      invertedEffects.of((tr) => [
-        ...tr.effects
-          .filter((e) => e.is(scriptEffect))
-          .map((e) => {
-            const v = e.value as { from: Script; to: Script };
-            return scriptEffect.of({ from: v.to, to: v.from });
-          }),
-        ...tr.effects
-          .filter((e) => e.is(patchEffect))
-          .map((e) => patchEffect.of(invert(e.value as Patch))),
-      ]),
-      EditorState.transactionExtender.of((tr) => this.extend(pane, tr)),
       EditorView.updateListener.of((u) => this.update(pane, u)),
-      EditorView.domEventHandlers({
-        focus: () => {
-          this.lastFocused = pane;
-        },
-        paste: (event) => {
-          if (pane !== "source") return false;
-          const text = event.clipboardData?.getData("text/plain");
-          if (!text || !this.onSourcePaste(text)) return false;
-          event.preventDefault();
-          return true;
-        },
-      }),
     ];
   }
 
-  /** Applies a pane's text changes to segs, last change first. */
-  private applyChanges(
-    pane: Pane,
-    segs: Segment[],
-    changes: ChangeSet,
-  ): Segment[] {
-    const list: { from: number; to: number; insert: string }[] = [];
-    changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-      list.push({ from: fromA, to: toA, insert: inserted.toString() });
-    });
-    const step = pane === "source" ? applySourceChange : applyOutputChange;
-    return list.reverse().reduce((s, ch) => step(s, ch, this.ctx), segs);
-  }
-
-  /** Attaches the segment patch for a user edit to its transaction. */
-  private extend(pane: Pane, tr: Transaction): TransactionSpec | null {
-    if (
-      !tr.docChanged ||
-      tr.annotation(mirror) ||
-      tr.effects.some((e) => e.is(patchEffect))
-    )
-      return null;
-    const p = diff(
-      this.segments,
-      this.applyChanges(pane, this.segments, tr.changes),
-    );
-    return p ? { effects: patchEffect.of(p) } : null;
-  }
-
   private update(pane: Pane, u: ViewUpdate): void {
-    let changed = false;
-    for (const tr of u.transactions) {
-      if (tr.annotation(mirror)) continue;
-      let scriptChanged = false;
-      for (const e of tr.effects) {
-        if (e.is(scriptEffect)) {
-          this.setScript((e.value as { to: Script }).to);
-          scriptChanged = true;
-        }
-      }
-      const patches = tr.effects.filter((e) => e.is(patchEffect));
-      // Undo and redo restore only this pane's side of segments that the
-      // other pane has changed since (§4.7).
-      const replay = tr.isUserEvent("undo") || tr.isUserEvent("redo");
-      for (const e of patches) {
-        const p = e.value as Patch;
-        const next = replay
-          ? applyPanePatch(this.segments, p, pane, this.ctx)
-          : apply(this.segments, p);
-        // A patch that no longer fits (undo after conflicting edits in
-        // the other pane) falls back to the plain text edit.
-        this.segments =
-          next ?? this.applyChanges(pane, this.segments, tr.changes);
-        changed = true;
-      }
-      // Linked lines always follow the current script, including lines
-      // added after a switch that undo or redo has just reversed (§4.6).
-      if (scriptChanged) {
-        this.segments = this.regenerateLinked(this.segments);
-        changed = true;
-      }
-    }
-    if (changed) this.queueRefresh();
+    if (pane === "source" && u.docChanged) this.queueRefresh();
     if (u.selectionSet || u.focusChanged || u.docChanged) this.queuePair();
+  }
+
+  // A pane cannot be updated while it is updating, so the output follows
+  // straight after the current update.
+  private queueRefresh(): void {
+    if (this.refreshQueued) return;
+    this.refreshQueued = true;
+    queueMicrotask(() => {
+      this.refreshQueued = false;
+      this.refresh();
+    });
+  }
+
+  /**
+   * Regenerates the output from the input and updates the markers and
+   * counts. Also called when the output script changes (§4.5).
+   */
+  refresh(): void {
+    const text = this.sourceText();
+    const want = outputOf(text, this.convert);
+    const problems = text.split("\n").map((l) => this.issues(l));
+    this.source.dispatch({
+      effects: setMarkers.of(markers(text, problems)),
+      annotations: Transaction.addToHistory.of(false),
+    });
+    this.output.dispatch({
+      changes: textChange(this.outputText(), want),
+      effects: setMarkers.of(markers(want, problems)),
+    });
+    this.onChange(this.counts());
+  }
+
+  counts(): Counts {
+    const text = this.sourceText();
+    if (text === "") return { lines: 0, errors: 0 };
+    const lines = text.split("\n");
+    return {
+      lines: lines.length,
+      errors: lines.filter((l) => this.issues(l).length > 0).length,
+    };
   }
 
   private queuePair(): void {
@@ -377,9 +260,9 @@ export class EditorDocument {
   }
 
   /**
-   * Highlights the lines of the segments touched by the focused pane's
-   * selection, in both panes, scrolling the other pane to show them;
-   * clears the highlight when neither pane has focus.
+   * Highlights the lines touched by the focused pane's selection, in both
+   * panes, scrolling the other pane to show them; clears the highlight
+   * when neither pane has focus.
    */
   private pair(): void {
     const focused = this.source.hasFocus
@@ -387,42 +270,26 @@ export class EditorDocument {
       : this.output.hasFocus
         ? this.output
         : null;
-    // The segment of each source line; output line i is segment i.
-    const sourceSeg: number[] = [];
-    this.segments.forEach((s, i) => {
-      const n = s.source === null ? 0 : s.source.split("\n").length;
-      for (let k = 0; k < n; k++) sourceSeg.push(i);
-    });
-    const segs = new Set<number>();
+    let first = 0;
+    let last = -1;
     if (focused) {
       const { doc, selection } = focused.state;
-      const first = doc.lineAt(selection.main.from).number - 1;
-      const last = doc.lineAt(selection.main.to).number - 1;
-      for (let line = first; line <= last; line++) {
-        const seg = focused === this.source ? sourceSeg[line] : line;
-        if (seg !== undefined) segs.add(seg);
-      }
+      first = doc.lineAt(selection.main.from).number;
+      last = doc.lineAt(selection.main.to).number;
     }
-    const lines = {
-      source: sourceSeg.flatMap((seg, line) => (segs.has(seg) ? [line] : [])),
-      output: [...segs].sort((a, b) => a - b),
-    };
-    for (const pane of ["source", "output"] as const) {
-      const view = this.view(pane);
+    for (const view of [this.source, this.output]) {
       const doc = view.state.doc;
-      const deco = Decoration.set(
-        lines[pane]
-          .filter((l) => l < doc.lines)
-          .map((l) => pairedLine.range(doc.line(l + 1).from)),
-      );
+      const ranges = [];
+      for (let n = first; n <= Math.min(last, doc.lines); n++)
+        ranges.push(pairedLine.range(doc.line(n).from));
+      const deco = Decoration.set(ranges);
       const old = view.state.field(pairedField);
       if (old.size === 0 && deco.size === 0) continue;
       // The panes scroll separately; bring the matching line into view.
-      const first = lines[pane][0];
       const scroll =
-        focused && view !== focused && first !== undefined && first < doc.lines
+        focused && view !== focused && first <= doc.lines
           ? [
-              EditorView.scrollIntoView(doc.line(first + 1).from, {
+              EditorView.scrollIntoView(doc.line(first).from, {
                 y: "nearest",
                 yMargin: 48,
               }),
@@ -432,178 +299,30 @@ export class EditorDocument {
     }
   }
 
-  // Panes cannot be updated while one of them is updating, so mirroring
-  // and markers run straight after the current update.
-  private queueRefresh(): void {
-    if (this.refreshQueued) return;
-    this.refreshQueued = true;
-    queueMicrotask(() => {
-      this.refreshQueued = false;
-      this.refresh();
-    });
-  }
-
-  /** Mirrors the model into both panes and updates markers and counts. */
-  private refresh(): void {
-    for (const pane of ["source", "output"] as const) {
-      const view = this.view(pane);
-      const want =
-        pane === "source"
-          ? sourceText(this.segments)
-          : outputText(this.segments);
-      view.dispatch({
-        changes: textChange(view.state.doc.toString(), want),
-        effects: setMarkers.of(this.markers(pane, want)),
-        annotations: [mirror.of(true), Transaction.addToHistory.of(false)],
-      });
-    }
-    this.onChange(this.counts());
-  }
-
-  private markers(pane: Pane, text: string): RangeSet<GutterMarker> {
-    const b = new RangeSetBuilder<GutterMarker>();
-    let pos = 0;
-    for (const s of this.segments) {
-      const lines =
-        pane === "output"
-          ? [s.output]
-          : s.source === null
-            ? []
-            : s.source.split("\n");
-      const problems = s.linked ? this.issues(s.source!) : [];
-      const m = problems.length > 0 ? errorMarker(problems) : markers[kind(s)];
-      for (const line of lines) {
-        if (m) b.add(pos, pos, m);
-        pos += line.length + 1;
-      }
-    }
-    if (pos > 0 && pos - 1 !== text.length && this.segments.length > 0) {
-      console.warn(`paramaakshara: ${pane} markers out of step with the text`);
-    }
-    return b.finish();
-  }
-
-  counts(): Counts {
-    const c: Counts = {
-      segments: this.segments.length,
-      detached: 0,
-      stale: 0,
-      outputOnly: 0,
-      errors: 0,
-    };
-    for (const s of this.segments) {
-      if (s.linked && this.issues(s.source!).length > 0) c.errors++;
-      const k = kind(s);
-      if (k === "detached") c.detached++;
-      else if (k === "stale") c.stale++;
-      else if (k === "output-only") c.outputOnly++;
-    }
-    return c;
-  }
-
-  /** The segment on the cursor line of the last focused pane. */
-  private segmentAtCursor(): Segment | undefined {
-    const view = this.view(this.lastFocused);
-    const line =
-      view.state.doc.lineAt(view.state.selection.main.head).number - 1;
-    if (this.lastFocused === "output") return this.segments[line];
-    let n = 0;
-    for (const s of this.segments) {
-      if (s.source === null) continue;
-      n += s.source.split("\n").length;
-      if (line < n) return s;
-    }
-    return undefined;
-  }
-
-  /** Regenerate line (§4.5). Returns false if cancelled or nothing to do. */
-  regenerateLine(): boolean {
-    const s = this.segmentAtCursor();
-    if (!s || s.source === null || s.linked) return false;
-    return this.regenerate(new Set([s.id]));
-  }
-
-  /** Regenerate all (§4.5). */
-  regenerateAll(): boolean {
-    return this.regenerate();
-  }
-
-  private regenerate(ids?: Set<string>): boolean {
-    const n = manualCount(this.segments, ids);
-    if (n === 0) return false;
-    const lines =
-      n === 1 ? "1 manually edited line" : `${n} manually edited lines`;
-    if (
-      !this.confirm(
-        `Replace ${lines} with the transliteration of the ITRANS source?`,
-      )
-    )
-      return false;
-    const next = regenerate(this.segments, this.ctx, ids);
-    const p = diff(this.segments, next);
-    if (!p) return false;
-    // One undoable step in the output history (§4.5).
-    this.output.dispatch({
-      changes: textChange(this.output.state.doc.toString(), outputText(next)),
-      effects: patchEffect.of(p),
-      userEvent: "regenerate",
-    });
-    return true;
-  }
-
   /**
-   * The output lines a command should act on: those touched by the
-   * selection, or all lines when nothing is selected. Returns 0-based
-   * line indexes and their text.
+   * Inserts text at the input cursor as one undo step, e.g. imported
+   * ITRANS or a symbol from the palette.
    */
-  outputLines(): { index: number; text: string }[] {
-    const state = this.output.state;
-    const sel = state.selection.main;
-    const first = sel.empty ? 1 : state.doc.lineAt(sel.from).number;
-    const last = sel.empty ? state.doc.lines : state.doc.lineAt(sel.to).number;
-    const out = [];
-    for (let n = first; n <= last; n++)
-      out.push({ index: n - 1, text: state.doc.line(n).text });
-    return out;
-  }
-
-  /**
-   * Replaces the text of some output lines as one undoable step. Each line
-   * is changed only where it differs, so the edit rules (§4.3) apply as
-   * for typing: changed lines are detached, others are untouched.
-   */
-  replaceOutputLines(
-    lines: { index: number; text: string }[],
-    userEvent: string,
-  ): void {
-    const doc = this.output.state.doc;
-    const changes = lines.flatMap(({ index, text }) => {
-      const line = doc.line(index + 1);
-      if (line.text === text) return [];
-      const c = textChange(line.text, text);
-      return [
-        { from: line.from + c.from, to: line.from + c.to, insert: c.insert },
-      ];
-    });
-    if (changes.length > 0) this.output.dispatch({ changes, userEvent });
-  }
-
-  /** Inserts text at the input cursor as a paste (one undo step). */
-  insertInSource(text: string): void {
+  insertInSource(text: string, userEvent = "input.paste"): void {
     this.source.dispatch(this.source.state.replaceSelection(text), {
-      userEvent: "input.paste",
+      userEvent,
       scrollIntoView: true,
     });
     this.source.focus();
   }
+}
 
-  /** Inserts text at the output cursor, e.g. from the symbol palette. */
-  insertInOutput(text: string): void {
-    this.output.dispatch(this.output.state.replaceSelection(text), {
-      userEvent: "input.symbol",
-    });
-    this.output.focus();
-  }
+/** ⚠ markers at the start of each line of text that has problems. */
+function markers(text: string, problems: string[][]): RangeSet<GutterMarker> {
+  const b = new RangeSetBuilder<GutterMarker>();
+  let pos = 0;
+  text.split("\n").forEach((line, i) => {
+    const p = problems[i] ?? [];
+    if (p.length > 0)
+      b.add(pos, pos, new ErrorMarker(`Cannot convert: ${p.join("; ")}`));
+    pos += line.length + 1;
+  });
+  return b.finish();
 }
 
 /** The single replacement turning a into b (common prefix and suffix kept). */

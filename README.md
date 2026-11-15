@@ -2,15 +2,14 @@
 
 A local-first Unicode editor for Sanskrit and Vedic texts. Type ITRANS on
 the left, get Devanagari, Kannada or Tamil on the right, with Vedic
-accents, and correct the output by hand without losing the link to the
-ITRANS.
+accents. The ITRANS is the document: corrections are made there, and the
+output is copied or exported.
 
 -   **ITRANS with Vedic accents:** `_` anudātta, `'` svarita, `'''` double
     svarita; `(gm)`/`(gg)` for the Taittirīya anusvara. Text typed in
     Baraha can be pasted and is converted.
--   **Two panes, one document:** edit any output line by hand; only that
-    line stops following the ITRANS (marked ✎), and Regenerate brings it
-    back. Undo works per pane.
+-   **Two panes, one document:** each output line is generated from its
+    ITRANS line and is read-only. Documents are saved as ITRANS (`.itx`).
 -   **Devanagari, Kannada, Tamil:** switch the output script at any time;
     anything a script cannot write exactly is reported, never dropped.
 -   **Export** the output as plain text or **PDF** (through the browser's
@@ -18,8 +17,9 @@ ITRANS.
     `name.itrans.txt`, `name.uni.txt` and `name.pdf` into a document
     folder in one step; the PDF is made with Chrome, Edge or Chromium
     running in the background, so one of them must be installed.
--   **Clean up text** for Baraha output (accent order, double svarita,
-    short e/o, colon visarga) and a **Vedic symbol palette**.
+-   **Import Unicode** rewrites Devanagari, Kannada or Tamil text in
+    ITRANS, with **Clean up** for Baraha output (accent order, double
+    svarita, short e/o, colon visarga), and a **Vedic symbol palette**.
 -   **Your files stay on your computer.** The editor runs in your browser
     but talks only to a small program on your own machine. Saves are
     atomic, with backups and crash recovery.

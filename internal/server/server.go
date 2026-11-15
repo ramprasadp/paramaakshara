@@ -32,7 +32,10 @@ type Options struct {
 	// PickFolder shows the system folder picker, starting in start, and
 	// returns the chosen directory; nil when there is no picker.
 	PickFolder func(ctx context.Context, start string) (string, error)
-	Client     ClientConfig
+	// PickFile shows the system file picker, starting in the folder start,
+	// and returns the chosen file; nil when there is no picker.
+	PickFile func(ctx context.Context, start string) (string, error)
+	Client   ClientConfig
 }
 
 // New returns the daemon's HTTP handler.
@@ -58,7 +61,7 @@ func New(opts Options) http.Handler {
 			log.Printf("legacy-font tables: %v", err)
 			legacy = nil
 		}
-		(&api{store: opts.Store, recovery: opts.Recovery, pdf: opts.PDF, pick: opts.PickFolder, client: opts.Client, legacy: legacy}).routes(mux, opts.Auth)
+		(&api{store: opts.Store, recovery: opts.Recovery, pdf: opts.PDF, pick: opts.PickFolder, pickFile: opts.PickFile, client: opts.Client, legacy: legacy}).routes(mux, opts.Auth)
 	}
 	// Any other /api path: unknown endpoint, but only after the session
 	// check, so unauthenticated callers learn nothing about the API.

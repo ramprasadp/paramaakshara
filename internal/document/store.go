@@ -26,7 +26,7 @@ import (
 )
 
 // Extensions are the file types the editor lists, opens and saves.
-var Extensions = []string{".paramaakshara.json", ".txt", ".itx"}
+var Extensions = []string{".itx", ".txt"}
 
 // Error is a failure with one of the API error codes from spec §9.3.
 type Error struct {

@@ -3,17 +3,14 @@
 import "./styles.css";
 import { transliterate } from "./conversion/itrans";
 import { fromDevanagari, type Script } from "./conversion/script";
-import { switchScript } from "./model/switch";
 import { EditorDocument, type Counts } from "./editor/document";
 import { Files } from "./files";
 import { fetchHealth } from "./health";
-import type { Context } from "./model/segments";
 import { ApiError, api, type ClientConfig } from "./services/api";
 import { looksLikeBaraha } from "./conversion/baraha";
 import { barahaDialog } from "./ui/baraha";
 import { legacyPdfImport } from "./ui/legacy";
 import { looksLikeUnicode, unicodeDialog, type Start } from "./ui/unicode";
-import { cleanupCommand } from "./ui/cleanup";
 import { alertBox, confirmBox, el, show } from "./ui/dialog";
 import { Palette } from "./ui/palette";
 import { referenceSheet } from "./ui/reference";
@@ -58,15 +55,33 @@ function converter(
 }
 
 function showCounts(c: Counts): void {
-  const parts = [`${c.segments} ${c.segments === 1 ? "line" : "lines"}`];
-  if (c.detached) parts.push(`${c.detached} edited`);
-  if (c.stale) parts.push(`${c.stale} out of date`);
-  if (c.outputOnly) parts.push(`${c.outputOnly} output-only`);
+  const parts = [`${c.lines} ${c.lines === 1 ? "line" : "lines"}`];
   if (c.errors) parts.push(`${c.errors} with ITRANS errors`);
   byId("counts").textContent = parts.join(" · ");
 }
 
-/** Lists lines that could not be converted exactly (§4.6). */
+/** A choice remembered in this browser (§4.5, §6.4); null if unavailable. */
+function remembered(key: string): string | null {
+  try {
+    return localStorage.getItem(`paramaakshara-${key}`);
+  } catch {
+    return null;
+  }
+}
+
+function remember(key: string, value: string): void {
+  try {
+    localStorage.setItem(`paramaakshara-${key}`, value);
+  } catch {
+    // Not remembered; the configured default is used next time.
+  }
+}
+
+function isScript(s: string | null | undefined): s is Script {
+  return s === "devanagari" || s === "kannada" || s === "tamil";
+}
+
+/** Lists lines that could not be converted exactly (§4.5). */
 async function reportSwitch(
   to: Script,
   issues: { line: number; messages: string[] }[],
@@ -79,7 +94,7 @@ async function reportSwitch(
   await show(
     "Some lines could not be converted exactly",
     [
-      `Converted to ${to}. These lines were kept or written approximately; Undo (⌘Z in the output pane) switches back.`,
+      `Converted to ${to}. These lines were written approximately; choose another script to switch back.`,
       list,
     ],
     [{ label: "OK", value: true, primary: true }],
@@ -147,16 +162,13 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
   const devanagariDigits = config?.editor.digits !== "ascii";
   const convert = converter(devanagariDigits);
   const scriptSelect = byId<HTMLSelectElement>("script-select");
+  const saved = remembered("output-script");
   const configured = config?.editor.output_script;
-  let script: Script =
-    configured === "kannada" || configured === "tamil"
+  let script: Script = isScript(saved)
+    ? saved
+    : isScript(configured)
       ? configured
       : "devanagari";
-  let nextId = 0;
-  const context: Context = {
-    convert: (s) => convert(s, script).text,
-    newId: () => `s${++nextId}`,
-  };
   let files: Files | null = null;
   const showScript = () => {
     scriptSelect.value = script;
@@ -174,15 +186,8 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
   const doc = new EditorDocument({
     sourceParent: byId("source"),
     outputParent: byId("output"),
-    context,
-    script,
-    // Also called by undo and when a file in another script is opened.
-    onScript: (s) => {
-      script = s;
-      showScript();
-      files?.setOutputScript(s);
-    },
-    issues: (s) => convert(s, script).issues,
+    convert: (line) => convert(line, script).text,
+    issues: (line) => convert(line, script).issues,
     // Baraha text pasted into the ITRANS pane would convert wrongly
     // (q is a letter in ITRANS), so offer to rewrite it first; likewise
     // Unicode text, which would only pass through.
@@ -199,53 +204,62 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
       showCounts(c);
       files?.changed();
     },
-    confirm: (message) => window.confirm(message),
   });
   showScript();
   scriptSelect.addEventListener("change", () => {
     const to = scriptSelect.value as Script;
-    let issues: { line: number; messages: string[] }[] = [];
-    doc.switchScript(to, (segs) => {
-      const r = switchScript(segs, to, context);
-      issues = r.issues;
-      return r.segments;
-    });
+    if (!isScript(to) || to === script) return;
+    script = to;
+    remember("output-script", to);
+    showScript();
+    doc.refresh();
+    // Lines the script cannot write exactly (§7.3).
+    const issues = doc
+      .sourceText()
+      .split("\n")
+      .map((line, i) => ({
+        line: i + 1,
+        messages: fromDevanagari(
+          transliterate(line, { devanagariDigits }).text,
+          to,
+        ).issues.map((x) => x.message),
+      }))
+      .filter((i) => i.messages.length > 0)
+      .map((i) => ({ ...i, messages: [...new Set(i.messages)] }));
     if (issues.length > 0) void reportSwitch(to, issues);
   });
 
-  byId("regen-line").addEventListener("click", () => doc.regenerateLine());
-  byId("regen-all").addEventListener("click", () => doc.regenerateAll());
   byId("reference").addEventListener(
     "click",
     () => void referenceSheet((itrans) => convert(itrans, script).text),
   );
   byId("file-export").addEventListener("click", () => files?.exportText());
   byId("export-pdf").addEventListener("click", () => {
-    const lines = doc.output.state.doc.toString().split("\n");
+    const lines = doc.outputText().split("\n");
     void exportPdf(lines, files?.documentName() ?? "Untitled");
   });
-  byId("cleanup").addEventListener("click", () => void cleanupCommand(doc));
   byId("import-unicode").addEventListener("click", () => void unicodeImport());
   byId("baraha").addEventListener(
     "click",
     () => void barahaDialog(doc, (line) => convert(line, script)),
   );
 
-  let tradition = config?.editor.vedic_tradition ?? "rigveda";
+  let tradition =
+    remembered("tradition") ?? config?.editor.vedic_tradition ?? "rigveda";
   const palette = new Palette(byId("palette"), {
     doc,
-    tradition: () => files?.tradition() ?? tradition,
+    tradition: () => tradition,
     setTradition: (id) => {
       tradition = id;
-      files?.setTradition(id);
+      remember("tradition", id);
     },
   });
   byId("palette-toggle").addEventListener("click", () => palette.toggle());
   doc.source.focus();
   if (!config) return { doc, files };
 
-  const f = new Files(doc, context, config, showStatus, (s) =>
-    doc.setScript(s),
+  const f = new Files(doc, config, showStatus, (text, title) =>
+    unicodeImport({ text, title }),
   );
   files = f;
   const actions: Record<string, () => unknown> = {

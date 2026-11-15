@@ -4,6 +4,28 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+-   Open (⌘O) shows the system file picker, so any `.itx` or `.txt`
+    file on the computer opens directly; Save writes back to it. Where
+    there is no picker (Docker), Open lists the document folders as
+    before.
+-   **The ITRANS is the document** (ADR 0006). The output pane is
+    read-only and always shows the conversion of the ITRANS, line by
+    line; corrections are made in the ITRANS. Edited (✎), out-of-date
+    and output-only lines, Regenerate line/all and the Clean up text
+    command are gone.
+-   Documents are saved as ITRANS `.itx`; Open reads `.itx` and `.txt`
+    as ITRANS. `.paramaakshara.json` files are no longer read or
+    written, and recovery snapshots from earlier versions cannot be
+    restored.
+-   The output script and Vedic tradition are remembered in the browser
+    instead of the file.
+-   The Symbols palette inserts into the ITRANS: a mark's ITRANS
+    (`_`, `'`, `'''`, `(gm)` …) or the character itself.
+-   Clean up's fixes are offered in Import Unicode, before the text is
+    rewritten in ITRANS.
+-   Import… reads a file as ITRANS, Baraha source or Unicode text.
+-   Undo in the output pane undoes the last ITRANS edit.
+
 -   Save as and Open have **Choose…** to pick any folder on the
     computer, as in Export all.
 -   Reference… replaces the anudātta, svarita and double svarita

@@ -206,6 +206,12 @@ func run() error {
 				}
 				return folder.Pick(ctx, "Choose a folder for Paramaakshara", start)
 			},
+			PickFile: func(ctx context.Context, start string) (string, error) {
+				if cfg.Server.Container {
+					return "", folder.ErrUnavailable
+				}
+				return folder.PickFile(ctx, "Open a document in Paramaakshara", start)
+			},
 			Client: server.ClientConfig{
 				Roots:                   roots,
 				MaxDocumentBytes:        cfg.Documents.MaxDocumentBytes,

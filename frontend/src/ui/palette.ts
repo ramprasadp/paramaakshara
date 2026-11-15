@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // The Vedic symbol palette (TECH_SPEC §6.4): accents by tradition, common
-// signs and the Vedic Unicode blocks, searchable, inserted at the output
-// cursor. Symbols the bundled font has no glyph for are marked.
+// signs and the Vedic Unicode blocks, searchable, inserted at the input
+// cursor: a mark's ITRANS when it has one, otherwise the character, which
+// the converter passes through. Symbols the bundled font has no glyph for
+// are marked.
 
 import type { EditorDocument } from "../editor/document";
 import { coveredCodePoints } from "../fonts/cmap";
@@ -65,7 +67,7 @@ export class Palette {
 
   close(): void {
     this.root.hidden = true;
-    this.opts.doc.output.focus();
+    this.opts.doc.source.focus();
   }
 
   async show(): Promise<void> {
@@ -108,10 +110,13 @@ export class Palette {
       );
       b.dataset.search =
         `${label ?? ""} ${s.name} ${codePoint(s.cp)}`.toLowerCase();
-      // Keep the output cursor where it is.
+      // Keep the input cursor where it is.
       b.addEventListener("mousedown", (e) => e.preventDefault());
       b.addEventListener("click", () =>
-        this.opts.doc.insertInOutput(String.fromCodePoint(s.cp)),
+        this.opts.doc.insertInSource(
+          input ?? String.fromCodePoint(s.cp),
+          "input.symbol",
+        ),
       );
       return b;
     };

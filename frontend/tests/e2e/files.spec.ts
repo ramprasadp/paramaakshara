@@ -15,6 +15,18 @@ async function signIn(page: Page, recovery: "discard" | "keep" = "discard") {
   const session = JSON.parse(
     readFileSync(join(E2E, "session.json"), "utf8"),
   ) as { token: string };
+  // Open shows the system file picker, which a browser test cannot
+  // drive: answer as a daemon without one does, so Open lists the
+  // document folder. Tests that pick a file route the call themselves.
+  await page.route("**/api/files/pick", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: { code: "unavailable", message: "No file picker." },
+      }),
+    }),
+  );
   await page.goto(`/auth?token=${session.token}`);
   await page.waitForFunction(() => window.paramaakshara !== undefined);
   // Startup may offer unsaved work left by earlier tests.
@@ -86,42 +98,22 @@ test("without signing in, files are unavailable and the editor still works", asy
   expect((await texts(page)).output).toBe("आ");
 });
 
-test("save as a project, then reopen with edit markers", async ({
+test("save as .itx keeps only the ITRANS; reopen regenerates the output", async ({
   page,
   browserName,
 }) => {
   await signIn(page);
-  await typeSource(page, "स॒हस्र॑\nपुरु॑षः");
-  await page.evaluate(() => {
-    const d = window.paramaakshara.doc;
-    d.output.focus();
-    d.output.dispatch({ selection: { anchor: d.output.state.doc.line(1).to } });
-  });
-  await page.keyboard.type(" ।");
+  // The example of TECH_SPEC §5.3 (Ṛgveda 1.1.1).
+  await typeSource(page, "a_gnimii'LE\npu_rOhi'taM");
   await expect(page.locator("#docname")).toHaveText("Untitled •");
-  const name = `${browserName}-purusha.paramaakshara.json`;
-  await saveAs(page, `rv/${name}`);
+  // The extension is added (§10.3).
+  await saveAs(page, `rv/${browserName}-purusha`);
+  const name = `${browserName}-purusha.itx`;
   await expect(page.locator("#docname")).toHaveText(name);
   await expect(page.locator("#save-state")).toHaveText("Saved");
-
-  const file = JSON.parse(readFileSync(join(DOCS, "rv", name), "utf8")) as {
-    segments: unknown[];
-  };
-  // Only the document settings of §10.3, nothing else from the config.
-  expect(Object.keys(file)).toEqual([
-    "format",
-    "format_version",
-    "converter_version",
-    "input_scheme",
-    "output_script",
-    "tamil_convention",
-    "vedic_tradition",
-    "segments",
-  ]);
-  expect(file.segments).toEqual([
-    { source: "स॒हस्र॑", output: "स॒हस्र॑ ।", linked: false, stale: false },
-    { source: "पुरु॑षः", output: "पुरु॑षः", linked: true },
-  ]);
+  expect(readFileSync(join(DOCS, "rv", name), "utf8")).toBe(
+    "a_gnimii'LE\npu_rOhi'taM",
+  );
 
   await page.click("#file-new");
   await expectTexts(page, { source: "", output: "" });
@@ -129,36 +121,46 @@ test("save as a project, then reopen with edit markers", async ({
   await page.locator("dialog input.filter").fill(name);
   await button(page, `rv/${name}`).click();
   await expectTexts(page, {
-    source: "स॒हस्र॑\nपुरु॑षः",
-    output: "स॒हस्र॑ ।\nपुरु॑षः",
+    source: "a_gnimii'LE\npu_rOhi'taM",
+    output:
+      "अ\u0952ग\u094Dन\u093Fम\u0940\u0951ळ\u0947\n" +
+      "प\u0941\u0952र\u094Bह\u093F\u0951त\u0902",
   });
-  await expect(page.locator("#counts")).toHaveText("2 lines · 1 edited");
+  await expect(page.locator("#counts")).toHaveText("2 lines");
   await expect(page.locator("#save-state")).toHaveText("Saved");
 });
 
-test("⌘S saves to the same file; plain text warns that ITRANS is dropped", async ({
+test("a .txt file opens as ITRANS and Save asks for a .itx name", async ({
   page,
   browserName,
 }) => {
   await signIn(page);
-  await typeSource(page, "Eka");
-  const name = `${browserName}-plain.txt`;
-  await saveAs(page, name);
-  await expect(page.locator("dialog[open]")).toContainText(
-    "ITRANS input is not saved",
-  );
-  await button(page, "Save").click();
-  await expect(page.locator("#docname")).toHaveText(name);
-  expect(readFileSync(join(DOCS, name), "utf8")).toBe("एक");
+  const txt = `${browserName}-plain.txt`;
+  writeFileSync(join(DOCS, txt), "Eka\r\n");
+  await page.click("#file-open");
+  await page.locator("dialog input.filter").fill(txt);
+  await button(page, txt).click();
+  await expectTexts(page, { source: "Eka\n", output: "एक\n" });
 
-  await typeSource(page, " dvi");
+  await typeSource(page, "dvi");
   await page.keyboard.press("ControlOrMeta+s");
-  await expect(page.locator("dialog[open]")).toContainText(
-    "ITRANS input is not saved",
-  );
+  const input = page.locator("dialog input.path");
+  await expect(input).toHaveValue(`${browserName}-plain.itx`);
   await button(page, "Save").click();
+  await expect(page.locator("#docname")).toHaveText(`${browserName}-plain.itx`);
+  // A new file is written with LF; the .txt is untouched.
+  expect(readFileSync(join(DOCS, `${browserName}-plain.itx`), "utf8")).toBe(
+    "Eka\ndvi",
+  );
+  expect(readFileSync(join(DOCS, txt), "utf8")).toBe("Eka\r\n");
+
+  // ⌘S now saves to the same file.
+  await typeSource(page, "!");
+  await page.keyboard.press("ControlOrMeta+s");
   await expect(page.locator("#save-state")).toHaveText("Saved");
-  expect(readFileSync(join(DOCS, name), "utf8")).toBe("एक द्वि");
+  expect(readFileSync(join(DOCS, `${browserName}-plain.itx`), "utf8")).toBe(
+    "Eka\ndvi!",
+  );
 });
 
 test("a file changed on disk is not overwritten without asking", async ({
@@ -167,7 +169,7 @@ test("a file changed on disk is not overwritten without asking", async ({
 }) => {
   await signIn(page);
   await typeSource(page, "mine");
-  const name = `${browserName}-conflict.paramaakshara.json`;
+  const name = `${browserName}-conflict.itx`;
   await saveAs(page, name);
   await expect(page.locator("#save-state")).toHaveText("Saved");
   writeFileSync(join(DOCS, name), "changed by another program\n");
@@ -179,7 +181,7 @@ test("a file changed on disk is not overwritten without asking", async ({
   );
   await button(page, "Overwrite").click();
   await expect(page.locator("#save-state")).toHaveText("Saved");
-  expect(readFileSync(join(DOCS, name), "utf8")).toContain('"source": "mine!"');
+  expect(readFileSync(join(DOCS, name), "utf8")).toBe("mine!");
 });
 
 test("Export all writes the ITRANS, Unicode and PDF files", async ({
@@ -286,15 +288,40 @@ test("Save as and Open can use a folder chosen in the system folder picker", asy
   const dialog = page.locator("dialog[open]");
   await dialog.getByRole("button", { name: "Choose…" }).click();
   await expect(dialog.locator("select option:checked")).toHaveText("Chosen");
-  const name = `${browserName}-chosen.paramaakshara.json`;
+  const name = `${browserName}-chosen.itx`;
   await dialog.locator("input.path").fill(name);
   await button(page, "Save").click();
   await expect(page.locator("#docname")).toHaveText(name);
-  expect(readFileSync(join(DOCS, name), "utf8")).toContain('"source": "Eka"');
+  expect(readFileSync(join(DOCS, name), "utf8")).toBe("Eka");
   // The chosen folder stays in the list for Open.
   await page.click("#file-open");
   await expect(dialog.locator("select option:checked")).toHaveText("Chosen");
   await button(page, "Cancel").click();
+});
+
+test("Open opens a file chosen in the system file picker", async ({
+  page,
+  browserName,
+}) => {
+  await signIn(page);
+  const name = `${browserName}-direct.itx`;
+  writeFileSync(join(DOCS, name), "shrIH");
+  // As for folders: answer as the daemon does after a pick.
+  await page.route("**/api/files/pick", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ root: "Documents", name: "Chosen", path: name }),
+    }),
+  );
+  await page.click("#file-open");
+  await expectTexts(page, { source: "shrIH", output: "श्रीः" });
+  await expect(page.locator("#docname")).toHaveText(name);
+  // Save writes back to the same file.
+  await typeSource(page, " ||");
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(page.locator("#save-state")).toHaveText("Saved");
+  expect(readFileSync(join(DOCS, name), "utf8")).toBe("shrIH ||");
 });
 
 test("without a browser for PDFs, Export all opens the print dialog", async ({
@@ -336,12 +363,10 @@ test("without a browser for PDFs, Export all opens the print dialog", async ({
   expect(readFileSync(join(DOCS, `${base}.uni.txt`), "utf8")).toBe("एक");
 });
 
-test("import a text file as Unicode output or as ITRANS", async ({ page }) => {
+test("import a text file as Unicode text or as ITRANS", async ({ page }) => {
   await signIn(page);
-  for (const [choice, expected] of [
-    ["Unicode output", { source: "", output: "अग्नि\nमीळे" }],
-    ["ITRANS input", { source: "अग्नि\nमीळे", output: "अग्नि\nमीळे" }],
-  ] as const) {
+  const unicode = "\uFEFFअग\u094Dन\u093F\r\nम\u0940ळ\u0947";
+  const importAs = async (choice: string) => {
     const chooser = page.waitForEvent("filechooser");
     await page.click("#file-import");
     if (await page.locator("dialog[open]").isVisible())
@@ -351,12 +376,27 @@ test("import a text file as Unicode output or as ITRANS", async ({ page }) => {
     ).setFiles({
       name: "agni.txt",
       mimeType: "text/plain",
-      buffer: Buffer.from("﻿अग्नि\r\nमीळे"),
+      buffer: Buffer.from(unicode),
     });
     await button(page, choice).click();
-    await expectTexts(page, expected);
-    await expect(page.locator("#docname")).toHaveText("agni.txt •");
-  }
+  };
+  // As Unicode: rewritten in ITRANS through Import Unicode (§6.9); the
+  // output gives back the file's text.
+  await importAs("Unicode text");
+  await expect(page.locator("dialog[open]")).toContainText("2 lines");
+  await button(page, "Insert as ITRANS").click();
+  await expect
+    .poll(async () => (await texts(page)).output)
+    .toBe("अग\u094Dन\u093F\nम\u0940ळ\u0947");
+  expect((await texts(page)).source).toMatch(/^[\x20-\x7E\n]+$/);
+  await expect(page.locator("#docname")).toHaveText("agni.txt •");
+  // As ITRANS: Devanagari passes through unchanged.
+  await importAs("ITRANS");
+  await expectTexts(page, {
+    source: "अग\u094Dन\u093F\nम\u0940ळ\u0947",
+    output: "अग\u094Dन\u093F\nम\u0940ळ\u0947",
+  });
+  await expect(page.locator("#docname")).toHaveText("agni.txt •");
 });
 
 test("importing invalid UTF-8 changes nothing", async ({ page }) => {
@@ -412,7 +452,7 @@ test("unsaved work is offered for recovery after the page is closed", async ({
   await expect(next.locator("#save-state")).toHaveText("Unsaved changes");
 });
 
-test("the output script is saved with the project and restored on open", async ({
+test("the output script is remembered in the browser, not in the file", async ({
   page,
   browserName,
 }) => {
@@ -420,24 +460,17 @@ test("the output script is saved with the project and restored on open", async (
   await typeSource(page, "bhagavadgItA");
   await page.selectOption("#script-select", "tamil");
   await expectTexts(page, { source: "bhagavadgItA", output: "ப⁴க³வத்³கீ³தா" });
-  const name = `${browserName}-tamil.paramaakshara.json`;
+  const name = `${browserName}-tamil.itx`;
   await saveAs(page, name);
   await expect(page.locator("#save-state")).toHaveText("Saved");
-  const file = JSON.parse(readFileSync(join(DOCS, name), "utf8")) as {
-    output_script: string;
-  };
-  expect(file.output_script).toBe("tamil");
+  expect(readFileSync(join(DOCS, name), "utf8")).toBe("bhagavadgItA");
 
-  await page.selectOption("#script-select", "devanagari");
-  await page.click("#file-new");
-  await button(page, "Discard").click();
+  await signIn(page);
+  await expect(page.locator("#script-select")).toHaveValue("tamil");
   await page.click("#file-open");
   await page.locator("dialog input.filter").fill(name);
   await button(page, name).click();
   await expectTexts(page, { source: "bhagavadgItA", output: "ப⁴க³வத்³கீ³தா" });
-  await expect(page.locator("#script-select")).toHaveValue("tamil");
-  // Lines are linked, not "out of date": the file was read in its own script.
-  await expect(page.locator("#counts")).toHaveText("1 line");
 });
 
 test("Quit asks first when there are unsaved changes", async ({ page }) => {

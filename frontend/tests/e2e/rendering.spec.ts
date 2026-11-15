@@ -34,6 +34,8 @@ for (const [name, lines] of [
       (text) => {
         const d = window.paramaakshara.doc;
         d.output.dispatch({ changes: { from: 0, insert: text } });
+        // No current-line highlight in the image.
+        d.source.contentDOM.blur();
         d.output.contentDOM.blur();
       },
       sample(name, lines),
@@ -58,6 +60,7 @@ for (const script of ["kannada", "tamil"] as const) {
     await page.evaluate((text) => {
       const d = window.paramaakshara.doc;
       d.output.dispatch({ changes: { from: 0, insert: text } });
+      d.source.contentDOM.blur();
       d.output.contentDOM.blur();
     }, text);
     await page.evaluate(() => document.fonts.ready);

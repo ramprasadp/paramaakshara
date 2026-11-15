@@ -6,11 +6,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/ramprasadp/paramaakshara/internal/config"
@@ -34,6 +36,7 @@ type api struct {
 	recovery *document.Recovery
 	pdf      PDFMaker
 	pick     func(ctx context.Context, start string) (string, error)
+	pickFile func(ctx context.Context, start string) (string, error)
 	client   ClientConfig
 	legacy   map[string]*legacyfont.Table // nil: legacy-font import is unavailable
 }
@@ -53,6 +56,7 @@ func (a *api) routes(mux *http.ServeMux, auth *Auth) {
 	handle("PUT /api/document", a.saveDocument)
 	handle("POST /api/export/pdf", a.exportPDF)
 	handle("POST /api/folders/pick", a.pickFolder)
+	handle("POST /api/files/pick", a.pickDocument)
 	handle("POST /api/import/legacy-pdf", a.importLegacyPDF)
 	handle("GET /api/recovery", a.listRecovery)
 	handle("GET /api/recovery/{key}", a.getRecovery)
@@ -199,6 +203,49 @@ func (a *api) pickFolder(w http.ResponseWriter, r *http.Request) {
 	root := a.store.AddPicked(dir)
 	log.Printf("picked folder %q: %s", root, dir)
 	writeJSON(w, http.StatusOK, map[string]string{"root": root, "name": filepath.Base(dir)})
+}
+
+// pickDocument shows the system file picker on this computer, makes
+// the chosen file's folder a document folder until the daemon stops, and
+// returns that folder's opaque name and the file's name in it (§10.1b).
+func (a *api) pickDocument(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Start string `json:"start"` // a document folder to start in
+	}
+	if !a.decode(w, r, &req) {
+		return
+	}
+	if a.pickFile == nil {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "Choosing a file is not available here.")
+		return
+	}
+	start, _ := a.store.Dir(req.Start)
+	file, err := a.pickFile(r.Context(), start)
+	switch {
+	case errors.Is(err, folder.ErrCancelled):
+		w.WriteHeader(http.StatusNoContent)
+		return
+	case errors.Is(err, folder.ErrUnavailable):
+		writeError(w, http.StatusServiceUnavailable, "unavailable",
+			"There is no file picker on this system; add folders to documents.roots in the configuration file.")
+		return
+	case err != nil:
+		log.Printf("pick file: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal", "The file picker failed; see the log file.")
+		return
+	}
+	name := filepath.Base(file)
+	if !slices.ContainsFunc(document.Extensions, func(ext string) bool {
+		return strings.HasSuffix(strings.ToLower(name), ext) && len(name) > len(ext)
+	}) {
+		writeError(w, http.StatusBadRequest, "bad_request",
+			fmt.Sprintf("%s is not a document; choose a %s file.", name, strings.Join(document.Extensions, " or ")))
+		return
+	}
+	dir := filepath.Dir(file)
+	root := a.store.AddPicked(dir)
+	log.Printf("picked file in folder %q: %s", root, file)
+	writeJSON(w, http.StatusOK, map[string]string{"root": root, "name": filepath.Base(dir), "path": name})
 }
 
 // importLegacyPDF converts the text of a PDF typeset with legacy

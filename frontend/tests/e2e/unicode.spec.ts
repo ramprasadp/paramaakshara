@@ -61,6 +61,12 @@ test("a line that will change is marked", async ({ page }) => {
   const dialog = page.locator("dialog[open]");
   // Baraha's order: svarita before anusvara.
   await dialog.locator("textarea").fill("\u092D\u0942\u092E\u093F\u0951\u0902");
+  // Clean up offers to fix the order first; declined, the line is marked.
+  await dialog
+    .locator("label")
+    .filter({ hasText: "sign first" })
+    .locator("input")
+    .uncheck();
   await expect(dialog).toContainText("1 will not convert back exactly");
   await expect(dialog.locator(".unicode-output")).toHaveText(
     "\u26A0 \u092D\u0942\u092E\u093F\u0902\u0951",
@@ -83,13 +89,4 @@ test("pasting Unicode into the ITRANS pane offers to convert it", async ({
   await expect
     .poll(() => texts(page))
     .toEqual({ source: ITRANS, output: UNICODE });
-});
-
-test("Regenerate icons have accessible names", async ({ page }) => {
-  await expect(
-    page.getByRole("button", { name: "Regenerate line" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Regenerate all" }),
-  ).toBeVisible();
 });

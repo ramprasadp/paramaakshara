@@ -246,7 +246,7 @@ func TestListSupportedFilesOnly(t *testing.T) {
 	for _, e := range entries {
 		paths = append(paths, e.Path)
 	}
-	if strings.Join(paths, ",") != "a.txt,c.itx,sub/b.paramaakshara.json" {
+	if strings.Join(paths, ",") != "a.txt,c.itx" {
 		t.Fatalf("listed %v", paths)
 	}
 }

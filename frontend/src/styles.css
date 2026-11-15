@@ -27,9 +27,7 @@
   --border: #d1d9e0;
   --panel: #f6f8fa;
   --accent: #0969da;
-  --detached: #9a6700;
   --stale: #cf222e;
-  --output-only: #1a7f37;
   --selection: #b6d6fd;
   /* One stack for mixed-script text; the browser picks per character. */
   --scripts-font:
@@ -47,9 +45,7 @@
     --border: #3d444d;
     --panel: #151b23;
     --accent: #4493f8;
-    --detached: #d29922;
     --stale: #f85149;
-    --output-only: #3fb950;
     --selection: #264f78;
   }
 }
@@ -251,20 +247,6 @@ button.icon .glyph {
   text-align: center;
   font-family: system-ui, sans-serif;
   font-size: 15px;
-}
-
-.seg-detached {
-  color: var(--detached);
-}
-
-.seg-stale {
-  color: var(--stale);
-  font-weight: 600;
-}
-
-.seg-output-only {
-  color: var(--output-only);
-  font-weight: 600;
 }
 
 .docname {
@@ -497,26 +479,10 @@ button.symbol.missing .code {
   align-items: flex-start;
 }
 
-.cleanup-preview {
-  margin-top: 12px;
-  max-height: 30vh;
-  overflow: auto;
-}
-
-.cleanup-line {
-  font-family: var(--indic-font);
-  font-size: 18px;
-  line-height: 1.8;
-  white-space: pre-wrap;
-}
-
-.cleanup-line .before {
-  color: var(--muted);
-  text-decoration: line-through;
-}
-
-.cleanup-line .after {
-  color: var(--fg);
+.pane h2 .pane-note {
+  font-weight: normal;
+  font-size: 12px;
+  margin-left: 8px;
 }
 
 .pane h2 select {

@@ -23,7 +23,7 @@
         <button
           id="file-import"
           type="button"
-          title="Open a file from anywhere on this computer"
+          title="Open an ITRANS, Baraha or Unicode text file from anywhere on this computer"
           disabled
         >
           Import…
@@ -68,34 +68,6 @@
       </span>
       <span id="docname" class="docname"></span>
       <span class="spacer"></span>
-      <span class="group" aria-label="Regenerate">
-        <button
-          id="regen-line"
-          type="button"
-          class="icon"
-          aria-label="Regenerate line"
-          title="Regenerate line: replace the output of the current line with the transliteration of its ITRANS"
-        >
-          <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
-            <path d="M15 9a6 6 0 1 1-1.76-4.24" />
-            <path d="M15.2 2.2v3.2H12" />
-            <path d="M6.5 9h5" />
-          </svg>
-        </button>
-        <button
-          id="regen-all"
-          type="button"
-          class="icon"
-          aria-label="Regenerate all"
-          title="Regenerate all: replace every manually edited line with the transliteration of its ITRANS"
-        >
-          <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
-            <path d="M15 9a6 6 0 1 1-1.76-4.24" />
-            <path d="M15.2 2.2v3.2H12" />
-            <path d="M6.5 6.8h5M6.5 9h5M6.5 11.2h5" />
-          </svg>
-        </button>
-      </span>
       <button
         id="reference"
         type="button"
@@ -110,13 +82,6 @@
         aria-controls="palette"
       >
         Symbols…
-      </button>
-      <button
-        id="cleanup"
-        type="button"
-        title="Fix accent order, Baraha double svarita, short e/o and colon visarga in the selection or the whole output"
-      >
-        Clean up…
       </button>
       <button
         id="quit"
@@ -147,11 +112,16 @@
       <section class="pane">
         <h2>
           Unicode output
-          <select id="script-select" title="Output script (§4.6)">
+          <select id="script-select" title="Output script">
             <option value="devanagari">Devanagari</option>
             <option value="kannada">Kannada</option>
             <option value="tamil">Tamil (superscript)</option>
           </select>
+          <span
+            class="muted pane-note"
+            title="The output follows the ITRANS line by line. Correct the ITRANS; copy the output or use Export."
+            >read-only</span
+          >
         </h2>
         <div id="output" class="editor"></div>
       </section>
