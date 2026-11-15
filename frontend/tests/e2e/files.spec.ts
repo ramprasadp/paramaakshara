@@ -268,6 +268,35 @@ test("Export all can use a folder chosen in the system folder picker", async ({
   );
 });
 
+test("Save as and Open can use a folder chosen in the system folder picker", async ({
+  page,
+  browserName,
+}) => {
+  await signIn(page);
+  // As in the Export all test: answer as the daemon does after a pick.
+  await page.route("**/api/folders/pick", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ root: "Documents", name: "Chosen" }),
+    }),
+  );
+  await typeSource(page, "Eka");
+  await page.click("#file-save-as");
+  const dialog = page.locator("dialog[open]");
+  await dialog.getByRole("button", { name: "Choose…" }).click();
+  await expect(dialog.locator("select option:checked")).toHaveText("Chosen");
+  const name = `${browserName}-chosen.paramaakshara.json`;
+  await dialog.locator("input.path").fill(name);
+  await button(page, "Save").click();
+  await expect(page.locator("#docname")).toHaveText(name);
+  expect(readFileSync(join(DOCS, name), "utf8")).toContain('"source": "Eka"');
+  // The chosen folder stays in the list for Open.
+  await page.click("#file-open");
+  await expect(dialog.locator("select option:checked")).toHaveText("Chosen");
+  await button(page, "Cancel").click();
+});
+
 test("without a browser for PDFs, Export all opens the print dialog", async ({
   page,
   browserName,

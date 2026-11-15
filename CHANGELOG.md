@@ -4,6 +4,13 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+-   Save as and Open have **Choose…** to pick any folder on the
+    computer, as in Export all.
+-   Reference… replaces the anudātta, svarita and double svarita
+    buttons: a sheet of how to type `.a`, `OM`, `~g`, `j~ja`, `kSha`,
+    the accents (`kaa'`, `kaa_`, `kaa'''`) and `ra(gm)`, with the output
+    in the current script.
+
 -   Accents after a digit: `dE_vya1_'kShabhi'H` gives दे॒व्य१॒॑क्षभिः॑
     (Ṛgveda kampa); previously the accents were flagged.
 

@@ -206,9 +206,10 @@ export class Files {
       placeholder: "Filter",
       className: "filter",
     });
-    const select = el("select");
-    for (const r of this.config.roots)
-      select.append(el("option", { value: r, selected: r === root }, r));
+    const folder = this.folderChooser(root, () => {
+      root = folder.select.value;
+      void fill();
+    });
     const fill = async () => {
       list.replaceChildren(el("li", { className: "muted" }, "Loading…"));
       try {
@@ -236,16 +237,13 @@ export class Files {
         );
       }
     };
-    select.addEventListener("change", () => {
-      root = select.value;
-      void fill();
-    });
     filter.addEventListener("input", () => void fill());
-    const body: Node[] = [];
-    if (this.config.roots.length > 1)
-      body.push(el("label", {}, "Folder ", select));
-    body.push(filter, list);
-    const done = show("Open", body, [{ label: "Cancel", value: null }]);
+    const done = show(
+      "Open",
+      [...folder.nodes, filter, list],
+      [{ label: "Cancel", value: null }],
+    );
+    filter.focus();
     await fill();
     await done;
     return picked;
@@ -262,19 +260,9 @@ export class Files {
   }
 
   async saveAs(): Promise<void> {
-    const select = el("select");
-    for (const r of this.config.roots) {
-      select.append(
-        el(
-          "option",
-          {
-            value: r,
-            selected: r === (this.current.root ?? this.config.roots[0]),
-          },
-          r,
-        ),
-      );
-    }
+    const folder = this.folderChooser(
+      this.current.root ?? this.config.roots[0]!,
+    );
     const input = el("input", {
       type: "text",
       value: this.current.path ?? suggestedName(this.current),
@@ -288,11 +276,7 @@ export class Files {
     );
     const ok = await show(
       "Save as",
-      [
-        el("label", {}, "Folder ", select),
-        el("label", {}, "File ", input),
-        hint,
-      ],
+      [...folder.nodes, el("label", {}, "File ", input), hint],
       [
         { label: "Cancel", value: false },
         { label: "Save", value: true, primary: true },
@@ -301,7 +285,7 @@ export class Files {
     if (!ok) return;
     const path = input.value.trim();
     if (path === "") return;
-    await this.write(select.value, path, "", true);
+    await this.write(folder.select.value, path, "", true);
   }
 
   /** Saves to root/path, expecting baseRevision on disk. */
@@ -363,7 +347,7 @@ export class Files {
       if (
         await confirmBox(
           "Replace existing file?",
-          `${path} already exists in ${root}.`,
+          `${path} already exists in ${this.folderName(root)}.`,
           "Replace",
         )
       ) {
@@ -470,18 +454,22 @@ export class Files {
   }
 
   /**
-   * Export all (§10.1b): asks for a folder and a name, then writes
-   * name.itrans.txt, name.uni.txt and name.pdf there. The daemon makes
-   * the PDF with a headless browser; without one, the print dialog opens.
+   * The folder list of the Open, Save as and Export all dialogs, with
+   * Choose… for a folder from the system folder picker (§9.4, §10.1b).
+   * The onChange callback runs when the selected folder changes.
    */
-  async exportAll(): Promise<void> {
+  private folderChooser(
+    selected: string,
+    onChange: () => void = () => {},
+  ): { select: HTMLSelectElement; nodes: Node[] } {
     const select = el("select");
-    const root =
-      this.lastExportRoot ?? this.current.root ?? this.config.roots[0]!;
     const addOption = (value: string, label: string) =>
-      select.append(el("option", { value, selected: value === root }, label));
+      select.append(
+        el("option", { value, selected: value === selected }, label),
+      );
     for (const r of this.config.roots) addOption(r, r);
     for (const p of this.picked) addOption(p.root, p.name);
+    select.addEventListener("change", onChange);
     const choose = el("button", { type: "button" }, "Choose…");
     const pickError = el("p", { className: "error", hidden: true });
     choose.addEventListener("click", () => {
@@ -500,6 +488,7 @@ export class Files {
             select.append(option);
           }
           option.selected = true;
+          onChange();
         } catch (e) {
           pickError.textContent = e instanceof Error ? e.message : String(e);
           pickError.hidden = false;
@@ -508,6 +497,26 @@ export class Files {
         }
       })();
     });
+    return {
+      select,
+      nodes: [el("label", {}, "Folder ", select, " ", choose), pickError],
+    };
+  }
+
+  /** The name shown for a folder: picked folders have an opaque root. */
+  private folderName(root: string): string {
+    return this.picked.find((p) => p.root === root)?.name ?? root;
+  }
+
+  /**
+   * Export all (§10.1b): asks for a folder and a name, then writes
+   * name.itrans.txt, name.uni.txt and name.pdf there. The daemon makes
+   * the PDF with a headless browser; without one, the print dialog opens.
+   */
+  async exportAll(): Promise<void> {
+    const folder = this.folderChooser(
+      this.lastExportRoot ?? this.current.root ?? this.config.roots[0]!,
+    );
     const input = el("input", {
       type: "text",
       value: exportBase(this.current.path ?? this.current.name),
@@ -517,8 +526,7 @@ export class Files {
     const ok = await show(
       "Export all",
       [
-        el("label", {}, "Folder ", select, " ", choose),
-        pickError,
+        ...folder.nodes,
         el("label", {}, "Name ", input),
         el(
           "p",
@@ -535,13 +543,13 @@ export class Files {
     if (!ok) return;
     const base = exportBase(input.value.trim());
     if (base === "") return;
-    const folder = select.value;
-    const folderName = select.selectedOptions[0]?.textContent ?? folder;
-    this.lastExportRoot = folder;
+    const root = folder.select.value;
+    const folderName = this.folderName(root);
+    this.lastExportRoot = root;
     const lines = outputText(this.doc.segments).split("\n");
     const text = (path: string, content: string) => (rev: string) =>
       api.save({
-        root: folder,
+        root,
         path,
         base_revision: rev,
         content,
@@ -563,7 +571,7 @@ export class Files {
         path: `${base}.pdf`,
         send: (rev: string) =>
           api.exportPdf({
-            root: folder,
+            root,
             path: `${base}.pdf`,
             base_revision: rev,
             title: pdf.title,

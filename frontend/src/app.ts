@@ -16,6 +16,7 @@ import { looksLikeUnicode, unicodeDialog, type Start } from "./ui/unicode";
 import { cleanupCommand } from "./ui/cleanup";
 import { alertBox, confirmBox, el, show } from "./ui/dialog";
 import { Palette } from "./ui/palette";
+import { referenceSheet } from "./ui/reference";
 import { exportPdf } from "./ui/pdf";
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -214,13 +215,10 @@ async function start(): Promise<{ doc: EditorDocument; files: Files | null }> {
 
   byId("regen-line").addEventListener("click", () => doc.regenerateLine());
   byId("regen-all").addEventListener("click", () => doc.regenerateAll());
-  for (const b of document.querySelectorAll<HTMLButtonElement>(
-    "[data-insert]",
-  )) {
-    // Keep focus (and the cursor) in the output pane.
-    b.addEventListener("mousedown", (e) => e.preventDefault());
-    b.addEventListener("click", () => doc.insertInOutput(b.dataset.insert!));
-  }
+  byId("reference").addEventListener(
+    "click",
+    () => void referenceSheet((itrans) => convert(itrans, script).text),
+  );
   byId("file-export").addEventListener("click", () => files?.exportText());
   byId("export-pdf").addEventListener("click", () => {
     const lines = doc.output.state.doc.toString().split("\n");

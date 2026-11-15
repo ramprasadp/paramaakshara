@@ -195,12 +195,15 @@ Initial toolbar actions:
 -   Import Unicode (icon button in the ITRANS input header, §6.9).
 -   Undo and redo.
 -   Find and replace.
--   Open (document browser for configured folders) and Import (any file
-    from the computer).
+-   Open (document browser for configured folders and folders chosen
+    with **Choose…**, §10.1b) and Import (any file from the computer).
 -   Legacy PDF (convert the text of a PDF typeset with legacy fonts,
     §6.10).
 -   Save and Save As.
 -   Export.
+-   Reference (a sheet of the ITRANS for avagraha, om, ङ, ज्ञ, क्ष, the
+    Vedic accents and ꣳ, with the output shown live in the output
+    script).
 -   Document status.
 
 ### 3.5 Keyboard shortcuts
@@ -1519,7 +1522,8 @@ three files in that folder through the daemon. **Choose…** next to the
 folder list asks the daemon to show the system folder picker (macOS
 `choose folder`, PowerShell's FolderBrowserDialog on Windows, zenity or
 kdialog on Linux; not in the container); the chosen folder is added to
-the list for the session (§9.4). Export all starts in the folder it last
+the list for the session (§9.4). Open and Save as have the same
+**Choose…** button and list. Export all starts in the folder it last
 used.
 
 -   `name.itrans.txt`: the ITRANS input, as in an `.itx` file.

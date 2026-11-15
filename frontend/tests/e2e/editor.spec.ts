@@ -171,13 +171,17 @@ test("Enter at the end of an output line adds an output-only line", async ({
   expect(await markers(page, "output")).toEqual(["", "+", ""]);
 });
 
-test("accent buttons insert at the output cursor", async ({ page }) => {
-  await typeSource(page, "कख");
-  await select(page, "output", 1);
-  await page.click('button[data-insert="॒"]');
-  expect((await texts(page)).output).toBe("क\u0952ख");
-  await page.keyboard.press(undo);
-  expect((await texts(page)).output).toBe("कख");
+test("the reference sheet shows hard-to-type letters and accents", async ({
+  page,
+}) => {
+  await page.click("#reference");
+  const rows = page.locator("dialog[open] table.reference tbody tr");
+  // Expected outputs from docs/itrans-mappings.md and TECH_SPEC §5.3.
+  await expect(rows.filter({ hasText: "j~ja" })).toContainText("ज्ञ");
+  await expect(rows.filter({ hasText: "kaa'''" })).toContainText("का\u1CDA");
+  await expect(rows.filter({ hasText: "ra(gm)" })).toContainText("र\uA8F3");
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
 });
 
 test("status bar counts edited and output-only lines", async ({ page }) => {
